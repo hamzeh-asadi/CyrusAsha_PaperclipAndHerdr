@@ -26,9 +26,10 @@ function Get-PaperclipState([string]$baseUrl) {
 }
 
 function Start-LocalPaperclip {
-    $node = Get-Command node.exe -ErrorAction SilentlyContinue
+    # Check the first Node on PATH, just as npm.cmd will; never invoke an array of paths.
+    $node = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $node) { throw 'Install a current Node.js 24 LTS and reopen this terminal.' }
-    $version = [version](& $node.Source -p 'process.versions.node')
+    $version = [version](& $node.Path -p 'process.versions.node')
     if ($version -lt [version]'24.15.0' -or $version.Major -eq 25) {
         throw "Node $version is not supported by the locked dependencies. Install Node 24 LTS (24.15+) or 26+."
     }
@@ -54,17 +55,28 @@ function Start-LocalPaperclip {
 
 Push-Location -LiteralPath $PSScriptRoot
 try {
-    # python.exe can be a Windows Store alias, so test the interpreter itself.
+    # Windows can have several launchers (PyManager, legacy launcher, Store aliases).
+    # Probe one ApplicationInfo.Path at a time; a path with spaces is still one command.
     $python = $null
     foreach ($name in 'py.exe', 'python.exe') {
-        $candidate = Get-Command $name -CommandType Application -ErrorAction SilentlyContinue
-        if (-not $candidate) { continue }
         $pyArgs = @()
-        if ($name -eq 'py.exe') { $pyArgs += '-3' }
-        & $candidate.Source @pyArgs -c 'import sys; sys.exit(sys.version_info < (3, 10))'
-        if ($LASTEXITCODE -eq 0) { $python = $candidate.Source; break }
+        if ($name -eq 'py.exe') { $pyArgs = @('-3') }
+        foreach ($candidate in (Get-Command $name -All -CommandType Application -ErrorAction SilentlyContinue)) {
+            $exe = $candidate.Path
+            try {
+                $probe = & $exe @pyArgs -c 'import sys; print(int(sys.version_info >= (3, 10)))' 2>$null
+                if ($LASTEXITCODE -eq 0 -and $probe -contains '1') {
+                    $python = $exe
+                    break
+                }
+            } catch {
+                Write-Verbose "Cannot run ${exe}: $($_.Exception.Message)"
+            }
+        }
+        if ($python) { break }
     }
-    if (-not $python) { throw 'Python 3.10+ is required for the dashboard. Paperclip alone can be run with npm start.' }
+    if (-not $python) { throw 'No working Python 3.10+ found. Check py -3 --version or python --version. Paperclip alone can be run with npm start.' }
+    Write-Host "Using Python command: $python"
 
     $envFile = Join-Path $PSScriptRoot 'dashboard/.env'
     $exists = Test-Path -LiteralPath $envFile
