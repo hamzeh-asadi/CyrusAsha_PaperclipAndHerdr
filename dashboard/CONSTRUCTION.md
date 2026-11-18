@@ -166,7 +166,7 @@ Frontend displays output in agent card
 
 1. **Output source**: Only Herdr CLI is currently used. Other agent types (Hermes, Freebuff) may not produce visible output.
 2. **Manual prompts**: `sendManualPrompt()` is a placeholder; real implementation requires Herdr CLI command construction.
-3. **Herdr agent name resolution**: `derive_herdr_agent_name()` is a stub; you may need to implement reverse lookup.
+3. **Herdr agent name resolution**: `derive_herdr_agent_name()` reads the live `herdr agent list` and matches Paperclip agent names; agents whose Herdr name differs must be listed in `HERDR_AGENT_MAP` (`<paperclip-id or name>=<herdr name or pane>`).
 4. **Error recovery**: Some failures (offline APIs) don't auto-retry in this version.
 5. **No permissions control**: All API calls use default credentials (from environment/config).
 

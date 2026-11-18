@@ -52,6 +52,8 @@ variables always take precedence over the file.
 - Query params: `lines=120&source=recent-unwrapped`
 - Returns: `{"agent_id": "...", "herdr_agent_name": "...", "output": "...", "success": bool, ...}`
 - Use: Fetch agent output from Herdr
+- Target resolution (`derive_herdr_agent_name`): explicit `HERDR_AGENT_MAP` entry (by Paperclip id, then by agent name) → live `herdr agent list` name match (trailing role words such as `-Worker`/`-Coder` are ignored) → the id itself when Herdr already uses it as an agent name or pane id.
+- When nothing resolves, `success` is `false`, `herdr_agent_name` is `null` and `error` explains which `HERDR_AGENT_MAP` entry to add and lists the live Herdr targets. `herdr agent read` is never called with a Paperclip UUID.
 
 ### GET /health
 - Returns: `{"status": "ok", "paperclip_online": bool}`
@@ -110,12 +112,14 @@ PAPERCLIP_API_URL=http://localhost:3100
 PAPERCLIP_COMPANY_ID=...
 HERDR_HOST=localhost
 HERDR_PORT=50800
+HERDR_AGENT_MAP=<paperclip-id-or-name>=<herdr-name-or-pane>,...
 ```
 
 ### 2. `dashboard/.env` (loaded by `load_env_file()` at import time)
 ```
 PAPERCLIP_API_URL=http://localhost:3100
 PAPERCLIP_COMPANY_ID=...
+HERDR_AGENT_MAP=856affb4-...=agy-worker,Freebuff-Coder=w2:p1
 DASHBOARD_HOST=0.0.0.0
 DASHBOARD_PORT=8000
 ```

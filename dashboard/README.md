@@ -53,6 +53,7 @@ export PAPERCLIP_API_URL=http://localhost:3100
 export PAPERCLIP_COMPANY_ID=YOUR_COMPANY_ID
 export HERDR_HOST=localhost
 export HERDR_PORT=50800
+export HERDR_AGENT_MAP=856affb4-...=agy-worker
 export AGENT_PING_TIMEOUT=2000
 export DASHBOARD_HOST=0.0.0.0
 export DASHBOARD_PORT=8000
@@ -67,6 +68,20 @@ python app.py
 - فایل با `utf-8-sig` خوانده می‌شود، پس BOM نوشته‌شده توسط `Set-Content -Encoding UTF8` در PowerShell مشکلی ایجاد نمی‌کند.
 - خط‌های خالی و خطوطی که با `#` شروع می‌شوند نادیده گرفته می‌شوند و کوتیشن دور مقدار حذف می‌شود.
 - اگر `.env` وجود نداشته باشد، همان مقادیر پیش‌فرض داخل کد استفاده می‌شوند.
+
+### نگاشت ایجنت‌های Paperclip به Herdr
+
+Herdr برای `agent read` فقط **نام ایجنت زنده** یا **شناسهٔ پنجره** (مثل `w1:p2`) را قبول می‌کند، نه شناسهٔ UUID پیکرکلیپ. داشبورد نام هدف را به این ترتیب پیدا می‌کند:
+
+1. مقدار صریح `HERDR_AGENT_MAP` در `.env` (با کلید شناسهٔ ایجنت پیکرکلیپ یا نام ایجنت).
+2. مقایسه با لیست واقعی و زندهٔ `herdr agent list` بر اساس نام ایجنت پیکرکلیپ (پسوند نقش‌هایی مثل `-Worker`/`-Coder` نادیده گرفته می‌شود).
+3. اگر خود شناسه در Herdr به‌عنوان نام یا شناسهٔ پنجره وجود داشته باشد، همان استفاده می‌شود.
+
+اگر هیچ‌کدام پیدا نشود، به‌جای اجرای دستور با UUID، متن راهنما برگردانده می‌شود که لیست هدف‌های زندهٔ Herdr را نشان می‌دهد. هر جفت `کلید=مقدار` را با کاما جدا کنید:
+
+```
+HERDR_AGENT_MAP=856affb4-69f1-44cb-a690-e4c2e6b2769d=agy-worker,Freebuff-Coder=w2:p1
+```
 
 ## محدودیت‌ها
 

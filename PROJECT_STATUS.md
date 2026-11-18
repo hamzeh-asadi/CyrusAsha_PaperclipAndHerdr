@@ -33,7 +33,7 @@
 - [x] Setup automation (PowerShell)
 
 ### Partial / TODO ⏳
-- [ ] Full Herdr agent name resolution (currently uses agent ID as fallback)
+- [x] Herdr agent name resolution (live `herdr agent list` match + `HERDR_AGENT_MAP` override)
 - [ ] Comment display for tickets (currently just titles)
 - [ ] Rate limiting
 - [ ] Authentication middleware
@@ -109,7 +109,7 @@ Frontend displays live status and output
 
 1. **Output Display**: Only works if Herdr is running with visible terminal output
 2. **Manual Prompts**: Placeholder implementation, doesn't actually send prompts
-3. **Agent Name Mapping**: Deriving Herdr agent names from Paperclip IDs is stubbed
+3. **Agent Name Mapping**: Resolved from live `herdr agent list`; agents whose Herdr name differs need a `HERDR_AGENT_MAP` entry in `dashboard/.env`
 4. **Error Handling**: Some failures don't show user-friendly messages
 5. **No Authentication**: Any client can access APIs (no auth middleware)
 
