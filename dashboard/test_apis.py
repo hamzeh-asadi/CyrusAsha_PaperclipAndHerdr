@@ -16,6 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import app
+import paperclip_client as transport
 
 
 @contextmanager
@@ -78,7 +79,8 @@ class DashboardTests(unittest.TestCase):
             ("GET", "/api/companies"): (200, [{"id": "only-company"}]),
             ("GET", "/api/companies/only-company/agents"): (200, []),
         })
-        self.assertEqual(self.request("/api/agents"), (200, {"agents": [], "paperclip_online": True}))
+        status, data = self.request("/api/agents")
+        self.assertEqual((status, data["agents"], data["company"]["id"]), (200, [], "only-company"))
 
     def test_multiple_companies_require_a_choice(self):
         self.upstream.routes["GET", "/api/companies"] = (200, [{"id": "first"}, {"id": "second"}])
@@ -122,7 +124,7 @@ class DashboardTests(unittest.TestCase):
         for body in ({"status": "starting"}, b"<html>not the API</html>"):
             self.upstream.routes["GET", "/api/health"] = (200, body)
             self.assertFalse(self.request("/health")[1]["paperclip"])
-        with patch.object(app._direct_api, "open", side_effect=URLError(ConnectionRefusedError())):
+        with patch.object(transport._direct_api, "open", side_effect=URLError(ConnectionRefusedError())):
             self.assertFalse(self.request("/health")[1]["paperclip"])
             self.assertEqual(self.request("/api/tickets")[0], 503)
 
@@ -151,7 +153,7 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(app.paperclip_health_state(url, timeout=.2), "timeout")
 
     def test_non_loopback_uses_normal_proxy_policy(self):
-        with patch.object(app._api, "open", side_effect=URLError(TimeoutError())) as remote:
+        with patch.object(transport._api, "open", side_effect=URLError(TimeoutError())) as remote:
             self.assertEqual(app.paperclip_health_state("https://paperclip.example"), "timeout")
             remote.assert_called_once()
 

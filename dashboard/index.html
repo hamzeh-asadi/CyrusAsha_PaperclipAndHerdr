@@ -1,583 +1,213 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fa" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Paperclip+Herdr Unified Dashboard</title>
-  <style>
-    :root {
-      --foreground: #0f0f0f;
-      --muted-foreground: #737373;
-      --accent: #3b82f6;
-      --border: #e4e4e7;
-      --card: #fafafa;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--card);
-      color: var(--foreground);
-      line-height: 1.5;
-      padding: 1rem;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 1rem;
-    }
-
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-    }
-
-    .status-badge {
-      font-size: 0.875rem;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      background: var(--border);
-      color: var(--muted-foreground);
-    }
-
-    .status-badge.online {
-      background: var(--success);
-      color: white;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 1rem;
-    }
-
-    .card {
-      border: 1px solid var(--border);
-      border-radius: 0.75rem;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      background: white;
-    }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .agent-name {
-      font-weight: 600;
-    }
-
-    .agent-type {
-      font-size: 0.75rem;
-      color: var(--muted-foreground);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .status-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.875rem;
-    }
-
-    .btn {
-      padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
-      border: 1px solid var(--border);
-      background: white;
-      color: var(--foreground);
-      cursor: pointer;
-      font-size: 0.875rem;
-      transition: background 0.15s;
-    }
-
-    .btn:hover {
-      background: var(--card);
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-      border: none;
-    }
-
-    .btn-primary:hover {
-      background: #2563eb;
-    }
-
-    .prompt-box {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    textarea {
-      width: 100%;
-      height: 60px;
-      padding: 0.5rem;
-      border: 1px solid var(--border);
-      border-radius: 0.5rem;
-      font-family: inherit;
-      font-size: 0.875rem;
-      resize: vertical;
-    }
-
-    .output-section {
-      flex: 1;
-      min-height: 120px;
-      background: var(--card);
-      border-radius: 0.5rem;
-      padding: 0.5rem;
-      overflow: auto;
-      font-family: "Courier New", monospace;
-      font-size: 0.75rem;
-      line-height: 1.4;
-      white-space: pre-wrap;
-    }
-
-    .output-section.empty {
-      color: var(--muted-foreground);
-      text-align: center;
-    }
-
-    .output-section.error {
-      color: var(--danger);
-    }
-
-    .tabs {
-      display: flex;
-      gap: 0.5rem;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 1rem;
-    }
-
-    .tab {
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      color: var(--muted-foreground);
-      font-size: 0.875rem;
-    }
-
-    .tab.active {
-      border-bottom-color: var(--accent);
-      color: var(--foreground);
-      font-weight: 600;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    .ticket-item {
-      padding: 0.75rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .ticket-item:last-child {
-      border-bottom: none;
-    }
-
-    .ticket-title {
-      font-weight: 500;
-      margin-bottom: 0.25rem;
-    }
-
-    .ticket-meta {
-      font-size: 0.75rem;
-      color: var(--muted-foreground);
-      display: flex;
-      gap: 1rem;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 0.125rem 0.5rem;
-      border-radius: 9999px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .badge.todo { background: #e0f2fe; color: #0369a1; }
-    .badge.in_progress { background: #fef9c3; color: #a16207; }
-    .badge.in_review { background: #dcfce7; color: #15803d; }
-    .badge.blocked { background: #fee2e2; color: #b91c1c; }
-
-    .refresh-controls {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-    }
-
-    .loading {
-      color: var(--muted-foreground);
-      font-size: 0.875rem;
-    }
-
-    .error {
-      color: var(--danger);
-      font-size: 0.875rem;
-    }
-
-    .poll-indicator {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--muted-foreground);
-      animation: pulse 1.5s infinite;
-    }
-
-    .poll-indicator.active {
-      background: var(--accent);
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .manual-prompt-section {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--border);
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <header>
-      <h1>Paperclip+Herdr Unified Dashboard</h1>
-      <div class="refresh-controls">
-        <span id="pollIndicator" class="poll-indicator"></span>
-        <button class="btn btn-primary" onclick="refreshAll()">بارگذاری مجدد</button>
-        <span id="statusBadge" class="status-badge">در حال اتصال...</span>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#173e37" />
+    <title>میز کار تیم | Paperclip × Herdr</title>
+    <link rel="stylesheet" href="/desk.css" />
+    <script defer src="/desk.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap top-inner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"
+            ><svg viewBox="0 0 32 32">
+              <path d="m10 20 9-9a3 3 0 0 1 4 4L12 26a6 6 0 0 1-8-8L17 5a6 6 0 0 1 9 9l-9 9" /></svg
+          ></span>
+          <div><b>میز کار تیم</b><small dir="ltr">PAPERCLIP × HERDR</small></div>
+        </div>
+        <div class="top-tools">
+          <span id="health" class="pill">در حال اتصال…</span
+          ><button id="refresh" class="icon-btn" aria-label="تازه‌سازی" title="تازه‌سازی">↻</button>
+        </div>
       </div>
     </header>
+    <main class="wrap">
+      <div class="workspace">
+        <span class="crumb">فضای کاری</span><span aria-hidden="true"> / </span
+        ><strong id="company">شرکت Paperclip</strong>
+      </div>
+      <div id="notice" class="message warn" role="status" hidden></div>
+      <div id="actionFeedback" role="status" hidden></div>
+      <nav class="tabs" aria-label="بخش‌های میز کار">
+        <button data-tab="plan" class="selected" aria-current="page">میز تقسیم کار</button>
+        <button data-tab="team">تیم ایجنت‌ها <span id="agentCount">۰</span></button>
+        <button data-tab="tasks">کارهای شرکت <span id="taskCount">۰</span></button>
+      </nav>
 
-    <p id="connectionMessage" class="error" role="status" hidden></p>
-
-    <nav class="tabs">
-      <div class="tab active" onclick="switchTab('agents')">ایجنت‌ها</div>
-      <div class="tab" onclick="switchTab('tickets')">تیکت‌ها</div>
-    </nav>
-
-    <!-- Agents Tab -->
-    <div id="agentsTab" class="tab-content active">
-      <div class="grid" id="agentsGrid"></div>
-    </div>
-
-    <!-- Tickets Tab -->
-    <div id="ticketsTab" class="tab-content">
-      <div id="ticketsList" class="grid" style="grid-template-columns: 1fr;"></div>
-    </div>
-  </div>
-
-  <script>
-    // Same origin as the page, so a custom DASHBOARD_PORT keeps working
-    const API_BASE = "/api";
-    const POLL_INTERVAL = 5 * 1000; // 5 seconds
-    let pollTimer = null;
-    let refreshing = false;
-    let paperclipOnline = false;
-
-    // State
-    let agents = [];
-    let tickets = [];
-    // Last fetched output and typed prompt per agent, so the 5s re-render does not wipe them
-    const agentOutputs = {};
-    const promptDrafts = {};
-
-    // Load from localStorage on init
-    document.addEventListener("DOMContentLoaded", () => {
-      try { loadState(); } catch { /* invalid or unavailable cache */ }
-      refreshAll();
-      startPolling();
-    });
-
-    function loadState() {
-      const storedAgents = localStorage.getItem("dashboard_agents");
-      const storedTickets = localStorage.getItem("dashboard_tickets");
-      if (storedAgents) agents = JSON.parse(storedAgents);
-      if (storedTickets) tickets = JSON.parse(storedTickets);
-    }
-
-    function saveState() {
-      // Cache presentation fields only, never adapter config or ticket bodies.
-      localStorage.setItem("dashboard_agents", JSON.stringify(agents.map(({id, name, adapterType, role, status, lastHeartbeatAt}) =>
-        ({id, name, adapterType, role, status, lastHeartbeatAt}))));
-      localStorage.setItem("dashboard_tickets", JSON.stringify(tickets.map(({id, title, status}) => ({id, title, status}))));
-    }
-
-    async function fetchJson(url, options) {
-      const res = await fetch(url, options);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      return data;
-    }
-
-    async function refreshAll() {
-      if (refreshing) return;
-      refreshing = true;
-      const messages = new Set();
-      try {
-        // A new instance can be healthy with no companies and no agents.
-        paperclipOnline = (await fetchJson("/health")).paperclip === true;
-        if (!paperclipOnline) throw new Error("Paperclip آماده نیست. خروجی npm start و آدرس PAPERCLIP_API_URL را بررسی کنید.");
-        const [a, t] = await Promise.allSettled([
-          fetchJson(`${API_BASE}/agents`), fetchJson(`${API_BASE}/tickets`)
-        ]);
-        agents = a.status === "fulfilled" ? a.value.agents : [];
-        tickets = t.status === "fulfilled" ? t.value.tickets : [];
-        for (const result of [a, t]) {
-          if (result.status === "rejected") messages.add(result.reason.message);
-        }
-      } catch (err) {
-        paperclipOnline = false;
-        agents = [];
-        tickets = [];
-        messages.add(err.message);
-      } finally {
-        refreshing = false;
-      }
-      const notice = document.getElementById("connectionMessage");
-      notice.textContent = [...messages].join(" — ");
-      notice.hidden = !messages.size;
-      updateUI();
-      try { saveState(); } catch { /* storage may be disabled */ }
-    }
-
-    async function triggerHeartbeat(agentId, btn) {
-      btn.disabled = true;
-      btn.textContent = "در حال ارسال...";
-
-      try {
-        const data = await fetchJson(`${API_BASE}/agents/${encodeURIComponent(agentId)}/heartbeat/invoke`, {
-          method: "POST"
-        });
-        if (data.status === "triggered") {
-          // Trigger output refresh after a short delay
-          setTimeout(refreshAgentOutput, 1500, agentId);
-        }
-      } catch (e) {
-        alert(`بیدارباش ارسال نشد: ${e.message}`);
-      }
-
-      btn.disabled = false;
-      btn.textContent = "بیدار کردن";
-    }
-
-    async function refreshAgentOutput(agentId) {
-      try {
-        const data = await fetchJson(`${API_BASE}/agents/${encodeURIComponent(agentId)}/output`);
-        agentOutputs[agentId] = {
-          text: data.success ? (data.output || "خروجی خالی") : (data.error || "خطا در خواندن خروجی"),
-          error: !data.success
-        };
-        const outputContainer = document.getElementById(`output-${agentId}`);
-        if (outputContainer) {
-          outputContainer.textContent = agentOutputs[agentId].text;
-          outputContainer.classList.remove("empty", "error");
-          if (agentOutputs[agentId].error) outputContainer.classList.add("error");
-        }
-      } catch (e) {
-        console.error("Failed to fetch agent output:", e);
-      }
-    }
-
-    function updateUI() {
-      updateAgentsUI();
-      updateTicketsUI();
-      updateGlobalStatus();
-    }
-
-    function updateAgentsUI() {
-      const grid = document.getElementById("agentsGrid");
-
-      // Only rebuild the cards when the data actually changed, otherwise the 5s poll
-      // would drop the textarea focus and the typed manual prompt.
-      const signature = agents
-        .map(a => JSON.stringify([a.id, a.name, a.adapterType, a.role, a.status, a.lastHeartbeatAt]))
-        .join(";");
-      if (grid.dataset.signature === signature && grid.childElementCount === agents.length) {
-        return;
-      }
-      grid.dataset.signature = signature;
-      grid.innerHTML = "";
-
-      if (agents.length === 0) {
-        grid.innerHTML = `<div class="card"><div class="status-row"><span>هیچ ایجنتی یافت نشد</span></div></div>`;
-        return;
-      }
-
-      agents.forEach(agent => {
-        const card = document.createElement("div");
-        card.className = "card";
-        card.innerHTML = `
-          <div class="card-header">
-            <div>
-              <div class="agent-name">${escapeHtml(agent.name)}</div>
-              <div class="agent-type">${escapeHtml(agent.adapterType || "unknown")}</div>
+      <section data-page="plan">
+        <div class="hero">
+          <div>
+            <span class="eyebrow light">دفتر برنامه‌ریزی تیم</span>
+            <h1>تقسیم کار، پیش از اجرا</h1>
+            <p>یک هدف بنویسید، آن را به خروجی‌های کوچک تقسیم کنید و برای هر خروجی یک مسئول بگذارید.</p>
+          </div>
+          <svg class="diagram" viewBox="0 0 212 114" fill="none" aria-hidden="true">
+            <g stroke="#79b6a4" stroke-width="1.5">
+              <path d="M168 57h-40q-9 0-9-9V26q0-7-8-7H66m53 38H66m53 0v31q0 7-8 7H66" />
+              <rect x="152" y="40" width="40" height="34" rx="8" fill="#d8efc8" />
+              <rect x="18" y="7" width="48" height="24" rx="6" fill="#355b50" />
+              <rect x="18" y="45" width="48" height="24" rx="6" fill="#355b50" />
+              <rect x="18" y="83" width="48" height="24" rx="6" fill="#355b50" />
+            </g>
+            <g fill="#c6e99f">
+              <circle cx="54" cy="19" r="3" />
+              <circle cx="54" cy="57" r="3" />
+              <circle cx="54" cy="95" r="3" />
+            </g>
+            <path d="M28 19h14m-14 38h14m-14 38h14" stroke="#99b4a7" stroke-width="2" />
+            <path d="m164 57 5 5 11-12" stroke="#235442" stroke-width="2.5" />
+          </svg>
+        </div>
+        <div class="layout">
+          <article class="panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">طرح کار</span>
+                <h2>ساخت زیرکارها</h2>
+              </div>
+              <span class="tag">ثبت در Backlog</span>
             </div>
-            <div class="status-badge ${agent.status === "running" ? "online" : ""}">
-              ${escapeHtml(agent.status || "نامشخص")}
+            <form id="planForm">
+              <fieldset id="planFields">
+                <label for="parent">کار اصلی</label
+                ><select id="parent">
+                  <option value="">+ ساخت کار اصلی جدید</option>
+                </select>
+                <label id="titleLabel" class="field"
+                  >عنوان کار جدید<input
+                    id="planTitle"
+                    maxlength="240"
+                    placeholder="مثلاً: افزودن جست‌وجو به فهرست مشتریان"
+                    required
+                /></label>
+                <div class="divider"></div>
+                <div class="section-head small">
+                  <div>
+                    <h3>زیرکار و مسئول</h3>
+                    <p class="hint">هر ردیف یک تیکت جداگانه در Paperclip می‌شود.</p>
+                  </div>
+                  <button id="template" type="button" class="link">الگوی سه‌مرحله‌ای</button>
+                </div>
+                <div id="steps"></div>
+                <button type="button" id="addStep" class="add">＋ افزودن زیرکار</button>
+              </fieldset>
+              <div class="form-actions">
+                <button id="savePlan" class="primary" type="submit">ثبت طرح در Paperclip</button
+                ><button id="discard" class="ghost" type="button" hidden>آزاد کردن فرم</button
+                ><small>ثبت طرح، ایجنت را بیدار نمی‌کند.</small>
+              </div>
+            </form>
+            <div id="planFeedback" role="status" hidden></div>
+          </article>
+          <aside>
+            <section class="panel">
+              <span class="eyebrow">اعضای شرکت</span>
+              <h2>تیم این میز</h2>
+              <div id="teamPreview" class="roster"></div>
+              <button class="ghost wide" data-go="team">＋ افزودن یا مدیریت ایجنت</button>
+            </section>
+            <section class="guide">
+              <span class="eyebrow">روال پیشنهادی</span>
+              <ol>
+                <li><b>تیم را بچینید</b><small>نشست زندهٔ Herdr یا تحویل دستی.</small></li>
+                <li><b>طرح را ثبت کنید</b><small>مسئول هر زیرکار را خودتان انتخاب می‌کنید.</small></li>
+                <li><b>کار را تحویل دهید</b><small>از «کارهای شرکت»، فقط کار آماده را شروع کنید.</small></li>
+              </ol>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section data-page="team" hidden>
+        <div class="page-heading">
+          <span class="eyebrow">اعضای شرکت</span>
+          <h1>تیم ایجنت‌ها</h1>
+          <p>این‌ها ایجنت‌های واقعی شرکت در Paperclip هستند، نه فهرست برنامه‌های نصب‌شده.</p>
+        </div>
+        <div class="layout team-layout">
+          <article class="panel">
+            <div class="section-head">
+              <h2>ثبت یک ایجنت</h2>
+              <span class="tag">یک‌بار برای هر عضو</span>
             </div>
-          </div>
-          <div class="status-row">
-            <span>نقش: ${escapeHtml(agent.role || "unknown")}</span>
-          </div>
-          <div class="status-row">
-            <span>آخرین بیدار: ${agent.lastHeartbeatAt ? formatTime(agent.lastHeartbeatAt) : "ثبت نشده"}</span>
-          </div>
-          <div class="status-row">
-            <button class="btn btn-primary wake-agent">
-              بیدار کردن
-            </button>
-          </div>
-          <div class="manual-prompt-section">
-            <div style="font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">پرامپت دستی</div>
-            <div class="prompt-box">
-              <textarea placeholder="هر نوع دستوری برای این ایجنت..."></textarea>
-              <button class="btn send-prompt">ارسال پرامپت</button>
+            <form id="enrollForm">
+              <fieldset id="enrollFields">
+                <label class="field"
+                  >پیش‌تنظیم<select id="preset">
+                    <option value="Freebuff">Freebuff</option>
+                    <option value="Antigravity">Antigravity</option>
+                    <option value="other">ایجنت دیگر</option>
+                  </select></label
+                >
+                <label class="field"
+                  >نام در Paperclip<input id="memberName" maxlength="80" value="Freebuff" required dir="auto"
+                /></label>
+                <label class="field"
+                  >روش تحویل<select id="mode">
+                    <option value="manual">دستی — کپی برگهٔ کار در برنامه</option>
+                    <option value="agent">متصل — ارسال به ایجنت شناخته‌شده در Herdr</option>
+                  </select></label
+                >
+                <p id="modeHint" class="hint"></p>
+                <div id="targetFields" hidden>
+                  <label class="field"
+                    >نشست زندهٔ Herdr<select id="target" dir="auto">
+                      <option value="">یک نشست را انتخاب کنید</option>
+                    </select></label
+                  ><button type="button" id="scan" class="link">↻ یافتن نشست‌ها</button>
+                  <p id="targetHint" class="hint" role="status"></p>
+                </div>
+                <button type="submit" class="primary wide" id="enroll">ثبت در شرکت</button>
+              </fieldset>
+            </form>
+            <div id="enrollFeedback" role="status" hidden></div>
+          </article>
+          <div>
+            <div class="section-head">
+              <h2>اعضای ثبت‌شده</h2>
+              <button data-go="plan" class="link">رفتن به تقسیم کار ←</button>
             </div>
+            <div id="agentsGrid" class="cards"></div>
           </div>
-          <div class="output-section empty">
-            خروجی اخیر...
+        </div>
+      </section>
+
+      <section data-page="tasks" hidden>
+        <div class="page-heading section-head">
+          <div>
+            <span class="eyebrow">تابلوی شرکت</span>
+            <h1>کارهای شرکت</h1>
+            <p>مسئول، کار مادر و وضعیت هر زیرکار را اینجا دنبال کنید.</p>
           </div>
-        `;
-        const wakeButton = card.querySelector(".wake-agent");
-        wakeButton.addEventListener("click", () => triggerHeartbeat(agent.id, wakeButton));
-        card.querySelector(".send-prompt").addEventListener("click", () => sendManualPrompt(agent.id));
-        card.querySelector(".output-section").id = `output-${agent.id}`;
-        const promptBox = card.querySelector("textarea");
-        promptBox.id = `prompt-${agent.id}`;
-        promptBox.value = promptDrafts[agent.id] || "";
-        promptBox.addEventListener("input", () => { promptDrafts[agent.id] = promptBox.value; });
-
-        const cachedOutput = agentOutputs[agent.id];
-        if (cachedOutput) {
-          const outputEl = card.querySelector(".output-section");
-          outputEl.textContent = cachedOutput.text;
-          outputEl.classList.remove("empty", "error");
-          if (cachedOutput.error) outputEl.classList.add("error");
-        }
-
-        grid.appendChild(card);
-      });
-    }
-
-    async function sendManualPrompt(agentId) {
-      const textarea = document.getElementById(`prompt-${agentId}`);
-      const prompt = textarea.value.trim();
-      if (!prompt) return alert("لطفاً یک پرامپت وارد کنید");
-
-      try {
-        const data = await fetchJson(`${API_BASE}/agents/${encodeURIComponent(agentId)}/prompt`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt })
-        });
-        if (data.status === "not_implemented_yet") return alert("ارسال پرامپت دستی هنوز پیاده‌سازی نشده است.");
-        alert(data.message || "پرامپت ارسال شد");
-        textarea.value = "";
-        setTimeout(refreshAgentOutput, 2000, agentId);
-      } catch (e) {
-        alert("خطا در ارسال پرامپت");
-      }
-    }
-
-    function updateTicketsUI() {
-      const list = document.getElementById("ticketsList");
-      list.innerHTML = "";
-
-      if (tickets.length === 0) {
-        list.innerHTML = `<div class="ticket-item">هیچ تیکتی یافت نشد</div>`;
-        return;
-      }
-
-      tickets.forEach(ticket => {
-        const item = document.createElement("div");
-        item.className = "ticket-item";
-        const statusClass = ["todo", "in_progress", "in_review", "blocked"].includes(ticket.status) ? ticket.status : "";
-
-        item.innerHTML = `
-          <div class="ticket-title">${escapeHtml(ticket.title || "بدون عنوان")}</div>
-          <div class="ticket-meta">
-            <span class="badge ${statusClass}">${escapeHtml(ticket.status || "unknown")}</span>
-            <span>شناسه: ${escapeHtml(ticket.id || "N/A")}</span>
+          <button class="primary" data-go="plan">＋ طرح جدید</button>
+        </div>
+        <div class="panel">
+          <div class="section-head">
+            <h2>کارهای باز</h2>
+            <label class="filter"
+              >مسئول
+              <select id="filter">
+                <option value="">همهٔ اعضا</option>
+              </select></label
+            >
           </div>
-        `;
-        list.appendChild(item);
-      });
-    }
-
-    function updateGlobalStatus() {
-      const badge = document.getElementById("statusBadge");
-      badge.className = `status-badge ${paperclipOnline ? "online" : ""}`;
-      badge.textContent = paperclipOnline ? "Paperclip آنلاین" : "Paperclip در دسترس نیست";
-    }
-
-    function switchTab(tabName) {
-      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-
-      const tab = document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`);
-      const content = document.getElementById(`${tabName}Tab`);
-
-      if (tab) tab.classList.add("active");
-      if (content) content.classList.add("active");
-    }
-
-    function startPolling() {
-      pollTimer = setInterval(refreshAll, POLL_INTERVAL);
-    }
-
-    function stopPolling() {
-      if (pollTimer) clearInterval(pollTimer);
-    }
-
-    // Utility functions
-    function escapeHtml(str) {
-      const div = document.createElement("div");
-      div.textContent = str;
-      return div.innerHTML;
-    }
-
-    function formatTime(timestamp) {
-      const date = new Date(timestamp);
-      return date.toLocaleString("fa-IR");
-    }
-  </script>
-</body>
+          <div id="ticketsList"></div>
+        </div>
+      </section>
+      <footer><span>میز کار تیم</span><span dir="ltr">Paperclip / Herdr</span></footer>
+    </main>
+    <dialog id="detail">
+      <div class="section-head">
+        <h2 id="detailTitle"></h2>
+        <button id="closeDetail" aria-label="بستن" class="icon-btn">×</button>
+      </div>
+      <p id="detailHint" class="hint"></p>
+      <textarea id="detailText" readonly dir="auto" rows="9"></textarea
+      ><button id="copy" class="primary">کپی متن</button>
+      <p id="copyHint" class="hint" role="status"></p>
+    </dialog>
+  </body>
 </html>

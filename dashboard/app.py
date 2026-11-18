@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
 Backend server for Paperclip+Herdr unified dashboard.
-Scans agents, triggers heartbeats, lists tickets, and fetches recent agent output.
+Company roster, Herdr handoffs, task decomposition, and human review.
 """
 
 import argparse
-import ipaddress
 import json
 import os
 import re
-import subprocess
 import time
-import urllib.request
 import webbrowser
-from http.client import HTTPException
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from typing import Any, Dict, Optional
-from urllib.error import HTTPError as UrllibHTTPError, URLError
 from urllib.parse import parse_qs, quote, urlencode, urlparse
+
+from paperclip_client import PaperclipError, PaperclipConnectionError, is_loopback, request_json
+from herdr_worker import bound_agent, cli_text, safe_target
+import team_desk as desk
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
@@ -54,78 +54,12 @@ PAPERCLIP_API_KEY = os.getenv("PAPERCLIP_API_KEY", "").strip()
 # Keys may be a Paperclip agent id or agent name; values are Herdr names or pane ids.
 HERDR_AGENT_MAP = os.getenv("HERDR_AGENT_MAP", "")
 HERDR_CACHE_TTL = float(os.getenv("HERDR_CACHE_TTL", "10"))
-PAPERCLIP_AGENT_CACHE_TTL = float(os.getenv("PAPERCLIP_AGENT_CACHE_TTL", "30"))
 
 
-class PaperclipError(RuntimeError):
-    def __init__(self, message: str, status: int = 502):
-        super().__init__(message)
-        self.status = status
-
-
-class PaperclipConnectionError(PaperclipError):
-    """A retryable transport failure, not an HTTP/authentication error."""
-
-    def __init__(self, state: str):
-        self.state = state
-        super().__init__(f"Paperclip connection {state}. Check PAPERCLIP_API_URL and the npm start terminal.", 503)
-
-
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    # An API response must be JSON, not a login page. Never forward a bearer
-    # token to a redirect target.
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-_api = urllib.request.build_opener(_NoRedirect())
-_direct_api = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
-
-
-def _is_loopback(host: str) -> bool:
-    if host.rstrip(".").lower() == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
-
-
-def paperclip_json(path: str, method: str = "GET", timeout: float = 5, *, base_url: Optional[str] = None) -> Any:
-    url = (base_url if base_url is not None else PAPERCLIP_URL).rstrip("/")
-    headers = {"Accept": "application/json"}
-    if PAPERCLIP_API_KEY and base_url is None and path != "/api/health":
-        headers["Authorization"] = f"Bearer {PAPERCLIP_API_KEY}"
-    try:
-        base = urlparse(url)
-        if (base.scheme not in ("http", "https") or not base.hostname or base.username is not None
-                or base.query or base.fragment):
-            raise ValueError("invalid base URL")
-        req = urllib.request.Request(f"{url}{path}", headers=headers, method=method)
-    except ValueError as exc:
-        raise PaperclipError("PAPERCLIP_API_URL must be an HTTP(S) base URL without credentials, query or fragment.") from exc
-    try:
-        # Never send loopback traffic (including board credentials) to a system proxy.
-        opener = _direct_api if _is_loopback(base.hostname) else _api
-        with opener.open(req, timeout=timeout) as response:
-            return json.load(response)
-    except UrllibHTTPError as exc:
-        exc.close()
-        if exc.code in (401, 403):
-            raise PaperclipError(
-                f"Paperclip HTTP {exc.code}: check PAPERCLIP_API_KEY and its permissions.", exc.code
-            ) from exc
-        status = exc.code if 400 <= exc.code < 500 else 502
-        raise PaperclipError(f"Paperclip returned HTTP {exc.code} for {path}.", status) from exc
-    except (URLError, OSError, HTTPException) as exc:
-        reason = exc.reason if isinstance(exc, URLError) else exc
-        if isinstance(reason, ConnectionRefusedError):
-            raise PaperclipConnectionError("refused") from exc
-        if isinstance(reason, TimeoutError):
-            raise PaperclipConnectionError("timeout") from exc
-        raise PaperclipError("Cannot reach Paperclip. Check PAPERCLIP_API_URL and the npm start terminal.", 503) from exc
-    except ValueError as exc:
-        raise PaperclipError("Expected JSON from Paperclip. Check PAPERCLIP_API_URL (base URL without /api).") from exc
+def paperclip_json(path: str, method: str = "GET", timeout: float = 5, *, base_url: Optional[str] = None,
+                   data: Optional[dict] = None) -> Any:
+    return request_json(base_url if base_url is not None else PAPERCLIP_URL, path, method, timeout,
+                        key=PAPERCLIP_API_KEY if base_url is None else "", data=data)
 
 
 def paperclip_health_state(base_url: Optional[str] = None, timeout: float = 3) -> str:
@@ -147,7 +81,7 @@ def check_paperclip_online() -> bool:
         return False
 
 
-def resolve_company_id() -> str:
+def resolve_company() -> dict:
     if COMPANY_ID:
         # Some collection endpoints return [] even for an unknown company.
         try:
@@ -160,7 +94,7 @@ def resolve_company_id() -> str:
             raise PaperclipError(
                 "Unknown PAPERCLIP_COMPANY_ID. Clear or correct it in dashboard/.env and restart the dashboard.", 409
             )
-        return COMPANY_ID
+        return company
 
     companies = paperclip_json("/api/companies")
     if not isinstance(companies, list):
@@ -175,7 +109,11 @@ def resolve_company_id() -> str:
     company = companies[0]
     if not isinstance(company, dict) or not isinstance(company.get("id"), str) or not company["id"]:
         raise PaperclipError("Paperclip returned a company without an id.")
-    return company["id"]
+    return company
+
+
+def resolve_company_id() -> str:
+    return resolve_company()["id"]
 
 
 def company_collection(collection: str) -> list:
@@ -187,13 +125,15 @@ def company_collection(collection: str) -> list:
 
 
 def list_agents_from_paperclip() -> Dict[str, Any]:
-    return {"agents": company_collection("agents"), "paperclip_online": True}
+    company = resolve_company()
+    rows = desk.roster(paperclip_json, company["id"])
+    return {"agents": [desk.agent_summary(a) for a in rows], "paperclip_online": True,
+            "company": {"id": company["id"], "name": company.get("name", ""), "issuePrefix": company.get("issuePrefix")}}
 
 
 # --- Herdr agent mapping -----------------------------------------------------
 
 _herdr_agents_cache: Dict[str, Any] = {"at": 0.0, "agents": None}
-_paperclip_agents_cache: Dict[str, Any] = {"at": 0.0, "agents": {}}
 
 
 def _normalize_agent_key(value: str) -> str:
@@ -221,21 +161,6 @@ def parse_agent_map(raw: str) -> Dict[str, str]:
     return mapping
 
 
-def _find_agent_list(payload: Any) -> Optional[list]:
-    """Find the agent array inside an unknown Herdr response wrapper."""
-    if isinstance(payload, list):
-        return payload
-    if isinstance(payload, dict):
-        for key in ("agents", "items"):
-            if isinstance(payload.get(key), list):
-                return payload[key]
-        for value in payload.values():
-            found = _find_agent_list(value)
-            if found is not None:
-                return found
-    return None
-
-
 def list_herdr_agents(use_cache: bool = True) -> list:
     """Return the live Herdr agents as {name, target, pane_id, status} dicts.
 
@@ -252,59 +177,9 @@ def list_herdr_agents(use_cache: bool = True) -> list:
     ):
         return _herdr_agents_cache["agents"]  # type: ignore[return-value]
 
-    proc = subprocess.run(
-        ["herdr", "agent", "list"], capture_output=True, text=True, timeout=10
-    )
-    if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()
-        raise RuntimeError(detail or "herdr agent list failed")
-    payload = json.loads(proc.stdout) if proc.stdout.strip() else {}
-    records = _find_agent_list(payload) or []
-
-    agents = []
-    for record in records:
-        if not isinstance(record, dict):
-            continue
-        name = record.get("name") or record.get("agent_name") or record.get("display_agent")
-        pane_id = record.get("pane_id")
-        if not pane_id and isinstance(record.get("pane"), dict):
-            pane_id = record["pane"].get("pane_id")
-        if not name and isinstance(record.get("agent"), dict):
-            name = record["agent"].get("name")
-        status = record.get("agent_status") or record.get("status") or record.get("state")
-        target = name or pane_id
-        if not target:
-            continue
-        agents.append(
-            {"name": name, "target": target, "pane_id": pane_id, "status": status}
-        )
-
+    agents = desk.live_targets()
     _herdr_agents_cache.update(at=now, agents=agents)
     return agents
-
-
-def _paperclip_agent_record(agent_id: str) -> Optional[Dict[str, Any]]:
-    """Look up one Paperclip agent (cached) so its name can be matched to Herdr."""
-    now = time.time()
-    cache = _paperclip_agents_cache
-    if not cache["agents"] or now - cache["at"] >= PAPERCLIP_AGENT_CACHE_TTL:
-        records: list = []
-        try:
-            payload = list_agents_from_paperclip().get("agents")
-            found = _find_agent_list(payload)
-            records = found if isinstance(found, list) else []
-        except Exception:
-            # Paperclip offline: the explicit map and the raw-id check still work.
-            records = []
-        cache.update(
-            at=now,
-            agents={
-                str(record.get("id")): record
-                for record in records
-                if isinstance(record, dict) and record.get("id")
-            },
-        )
-    return cache["agents"].get(agent_id)  # type: ignore[union-attr]
 
 
 def _name_candidates(name: Optional[str]) -> set:
@@ -316,71 +191,26 @@ def _name_candidates(name: Optional[str]) -> set:
     return {value for value in (normalized, root) if value}
 
 
-def derive_herdr_agent_name(agent_id: str) -> Optional[str]:
-    """Resolve a Paperclip agent id to a Herdr target (agent name or pane id).
-
-    Order: explicit HERDR_AGENT_MAP entry (by id, then by Paperclip agent name),
-    then a match against the live ``herdr agent list`` names, then the id itself
-    when Herdr already uses it (a pane id or a live agent name). Returns None when
-    nothing matches, so the caller can report an actionable error instead of
-    asking Herdr for a Paperclip UUID that Herdr has never seen.
-    """
+def output_target(record):
+    """Desk members only expose the chosen agent. Legacy maps are for reading, never dispatch."""
+    link = desk.connection(record)
+    if link:
+        if link['mode'] == 'manual':
+            raise PaperclipError('این عضو دستی است؛ خروجی را در خود برنامه ببینید.', 409)
+        binding = record['metadata']['herdrDesk']
+        bound_agent(link['target'], binding.get('terminal'), binding.get('kind'))
+        return link['target']
     mapping = parse_agent_map(HERDR_AGENT_MAP)
-
-    explicit = mapping.get(_normalize_agent_key(agent_id))
-    if explicit:
-        return explicit
-
-    record = _paperclip_agent_record(agent_id) or {}
-    agent_name = record.get("name") or record.get("title")
-    wanted = _name_candidates(agent_name)
-
-    for candidate in sorted(wanted, key=len, reverse=True):
-        if candidate in mapping:
-            return mapping[candidate]
-
-    try:
-        live_agents = list_herdr_agents()
-    except Exception:
-        live_agents = []
-
-    for agent in live_agents:
-        if wanted and wanted & _name_candidates(agent.get("name")):
-            return agent["target"]
-
-    for agent in live_agents:
-        if agent_id in (agent.get("target"), agent.get("pane_id")):
-            return agent_id
-
-    return None
-
-
-def missing_herdr_target_message(agent_id: str) -> str:
-    """Explain how to map an unmapped Paperclip agent to a Herdr target."""
-    record = _paperclip_agent_record(agent_id) or {}
-    agent_name = record.get("name") or "unknown"
-    try:
-        targets = [agent["target"] for agent in list_herdr_agents()]
-    except FileNotFoundError:
-        return (
-            "Herdr CLI ('herdr') is not in PATH, so agent output cannot be read. "
-            "Install Herdr or add it to PATH, then reload."
-        )
-    except Exception as exc:
-        return f"Herdr is not reachable: {exc}"
-
-    if not targets:
-        return (
-            "Herdr has no live agents. Start the agent in Herdr (herdr agent start "
-            f"<name> --kind <kind> --pane <pane>) or run it in a pane, then reload. "
-            f"Paperclip agent: {agent_name} ({agent_id})."
-        )
-    return (
-        f"No Herdr target is mapped to Paperclip agent {agent_name} ({agent_id}). "
-        "Add it to dashboard/.env as HERDR_AGENT_MAP=<paperclip-id>=<herdr-name> "
-        "(several pairs separated by commas). "
-        f"Live Herdr targets: {', '.join(targets)}."
-    )
+    names = _name_candidates(record.get('name'))
+    for key in [_normalize_agent_key(record['id']), *sorted(names, key=len, reverse=True)]:
+        if key in mapping:
+            return mapping[key]
+    live = list_herdr_agents()
+    matches = {row['target'] for row in live if names & _name_candidates(row.get('name'))
+               or record['id'] in (row['target'], row.get('pane_id'))}
+    if len(matches) == 1:
+        return matches.pop()
+    raise PaperclipError('هدف یکتایی در Herdr پیدا نشد. برای خروجی این عضو HERDR_AGENT_MAP را تنظیم کنید.', 409)
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -394,6 +224,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         """Helper to send JSON response."""
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
 
@@ -405,6 +237,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
 
+        # A loopback-only desk must not expose private board reads to rebound hostnames.
+        if parsed.path.startswith('/api/') and is_loopback(self.server.server_address[0]) and not self.is_local_operator():
+            self.send_error_json('از آدرس محلی داشبورد استفاده کنید.', 403)
+            return
+        assets = {'/desk.css': 'text/css', '/desk.js': 'application/javascript',
+                  '/fonts/vazirmatn-arabic.woff2': 'font/woff2', '/fonts/OFL.txt': 'text/plain'}
+        if parsed.path in assets:
+            self.send_asset(parsed.path[1:], assets[parsed.path])
+            return
+        if parsed.path == '/api/herdr/targets':
+            if not self.is_local_operator():
+                self.send_error_json('فهرست نشست‌ها فقط روی همین رایانه در دسترس است.', 403)
+                return
+            try:
+                self.send_json({'targets': desk.live_targets()})
+            except (ValueError, TypeError, RuntimeError) as exc:
+                self.send_error_json(str(exc), 503)
+            return
         # Scan all agents
         if parsed.path == "/api/agents":
             self.handle_agents(query)
@@ -437,16 +287,56 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_error_json("Cross-origin action denied", status=403)
             return
 
+        if not self.is_local_operator():
+            self.send_error_json('برای تغییرات، داشبورد را با آدرس محلی روی رایانهٔ میزبان باز کنید.', 403)
+            return
+        if parsed.path in ('/api/team/enroll', '/api/plans', '/api/work/advance'):
+            try:
+                data = self.read_json_object()
+                company = resolve_company_id()
+                if data.get('companyId') != company:
+                    raise PaperclipError('شرکت عوض شده است؛ صفحه را تازه کنید.', 409)
+                if parsed.path == '/api/team/enroll':
+                    if not is_loopback(urlparse(PAPERCLIP_URL).hostname or ''):
+                        raise PaperclipError('ثبت ایجنت محلی به Paperclip روی همین رایانه و همان مسیر فایل‌ها نیاز دارد.', 409)
+                    result = desk.enroll(paperclip_json, company, data)
+                elif parsed.path == '/api/plans':
+                    result = desk.save_plan(paperclip_json, company, data)
+                else:
+                    result = desk.advance(paperclip_json, company, data)
+                self.send_json(result)
+            except PaperclipError as exc:
+                self.send_error_json(str(exc), exc.status)
+            return
         # Trigger heartbeat manually via POST
         if parsed.path.startswith("/api/agents/") and parsed.path.endswith("/heartbeat/invoke"):
             agent_id = parsed.path[len("/api/agents/"):-len("/heartbeat/invoke")]
             self.handle_heartbeat(agent_id, {})
-        # Submit a manual prompt for an agent
-        elif parsed.path.startswith("/api/agents/") and parsed.path.endswith("/prompt"):
-            agent_id = parsed.path[len("/api/agents/"):-len("/prompt")]
-            self.handle_agent_prompt(agent_id)
         else:
             self.send_error_json("Not found", status=404)
+
+    def is_local_operator(self):
+        # A DNS-rebound hostname or a network/proxy client is not a local operator.
+        # Do not trust X-Forwarded-* headers in this unauthenticated application.
+        try:
+            host = urlparse('//' + self.headers.get('Host', '')).hostname or ''
+            return is_loopback(host) and is_loopback(self.client_address[0])
+        except ValueError:
+            return False
+
+    def read_json_object(self):
+        if self.headers.get_content_type() != 'application/json':
+            raise PaperclipError('application/json required', 415)
+        try:
+            size = int(self.headers.get('Content-Length', '0'))
+            if not 0 < size <= 128 * 1024:
+                raise PaperclipError('بدنهٔ درخواست خالی یا بیش از حد بزرگ است.', 413)
+            value = json.loads(self.rfile.read(size).decode('utf-8'))
+        except (ValueError, RecursionError):
+            raise PaperclipError('JSON نامعتبر است.', 400) from None
+        if not isinstance(value, dict):
+            raise PaperclipError('JSON object required', 400)
+        return value
 
     def check_paperclip_online(self) -> bool:
         """Delegate to the module-level helper (kept as a method for existing callers)."""
@@ -456,6 +346,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         """List all agents from Paperclip."""
         try:
             agents = self.list_agents_from_paperclip()
+            agents["localControl"] = self.is_local_operator()
+            prefix = agents['company'].get('issuePrefix')
+            if prefix and agents['localControl']:
+                # Top-level navigation to the actual board, never an XHR or a credential-bearing link.
+                agents['company']['boardUrl'] = PAPERCLIP_URL + '/' + quote(prefix, safe='')
             self.send_json(agents)
         except PaperclipError as e:
             self.send_error_json(str(e), status=e.status)
@@ -478,8 +373,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def trigger_heartbeat(self, agent_id: str) -> Dict[str, Any]:
         """Call Paperclip's heartbeat endpoint for the agent."""
+        agent = next((a for a in self.list_agents_from_paperclip()['agents'] if a['id'] == agent_id), None)
+        if not agent:
+            raise PaperclipError('ایجنت در این شرکت پیدا نشد.', 404)
+        if (agent.get('connection') or {}).get('mode') == 'manual':
+            raise PaperclipError('برای ایجنت دستی از کپی برگهٔ کار استفاده کنید.', 409)
         resp = paperclip_json(f"/api/agents/{quote(agent_id, safe='')}/heartbeat/invoke", method="POST")
-        return {"agent_id": agent_id, "status": "triggered", "response": resp}
+        return {"agent_id": agent_id, "status": "triggered", "response": {k: resp.get(k) for k in ("id", "status")} if isinstance(resp, dict) else {}}
 
     def handle_tickets(self, query: Dict[str, list]) -> None:
         """List tickets (optional filter by agent)."""
@@ -494,110 +394,51 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def list_tickets_from_paperclip(self, query: Dict[str, list]) -> Dict[str, Any]:
         """Fetch tickets from Paperclip API."""
         assignee = query.get("assigneeAgentId", [""])[0] if query.get("assigneeAgentId") else ""
-        status = query.get("status", ["todo,in_progress"])[0] if query.get("status") else "todo,in_progress"
+        status = query.get("status", ["backlog,todo,in_progress,in_review,blocked"])[0]
         params = {"status": status}
         if assignee:
             params["assigneeAgentId"] = assignee
         data = company_collection(f"issues?{urlencode(params)}")
-        return {"tickets": data, "paperclip_online": True}
+        return {"tickets": [desk.issue_summary(t) for t in data], "paperclip_online": True}
 
     def handle_agent_output(self, agent_id: str, query: Dict[str, list]) -> None:
         """Get recent output for the specified agent from Herdr."""
+        if not self.is_local_operator():
+            self.send_error_json('خروجی ترمینال فقط روی همین رایانه در دسترس است.', 403)
+            return
         try:
-            output = self.get_agent_output_from_herdr(agent_id, query)
-            self.send_json(output)
-        except PaperclipError as e:
-            self.send_error_json(str(e), status=e.status)
-        except Exception as e:
-            self.send_error_json(str(e), status=500)
-
-    def get_agent_output_from_herdr(self, agent_id: str, query: Dict[str, list]) -> Dict[str, Any]:
-        """Read recent agent output via Herdr CLI."""
-        lines = query.get("lines", ["120"])[0] if query.get("lines") else "120"
-        source = query.get("source", ["recent-unwrapped"])[0] if query.get("source") else "recent-unwrapped"
-
-        try:
-            herdr_agent_name = self.derive_herdr_agent_name(agent_id)
-        except Exception as e:
-            return {
-                "agent_id": agent_id,
-                "herdr_agent_name": None,
-                "output": "",
-                "error": f"Could not resolve the Herdr target: {e}",
-                "success": False,
-                "paperclip_online": self.check_paperclip_online()
-            }
-
-        # Herdr only accepts a live agent name or a pane id as a target
-        if not herdr_agent_name:
-            return {
-                "agent_id": agent_id,
-                "herdr_agent_name": None,
-                "output": "",
-                "error": missing_herdr_target_message(agent_id),
-                "success": False,
-                "paperclip_online": self.check_paperclip_online()
-            }
-
-        cmd = ["herdr", "agent", "read", herdr_agent_name, f"--source={source}", f"--lines={lines}"]
-
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            output_text = result.stdout
-            error_text = result.stderr
-            success = result.returncode == 0
-            return {
-                "agent_id": agent_id,
-                "herdr_agent_name": herdr_agent_name,
-                "output": output_text,
-                "error": error_text.strip() if not success and error_text.strip() else (None if success else "herdr agent read failed"),
-                "success": success,
-                "paperclip_online": self.check_paperclip_online()
-            }
-        except FileNotFoundError:
-            return {
-                "agent_id": agent_id,
-                "herdr_agent_name": herdr_agent_name,
-                "error": "Herdr CLI ('herdr') is not in PATH",
-                "success": False
-            }
-        except subprocess.TimeoutExpired:
-            return {
-                "agent_id": agent_id,
-                "herdr_agent_name": herdr_agent_name,
-                "error": "Timeout reading agent output from Herdr",
-                "success": False
-            }
-        except Exception as e:
-            return {
-                "agent_id": agent_id,
-                "herdr_agent_name": herdr_agent_name,
-                "error": str(e),
-                "success": False
-            }
-
-    def derive_herdr_agent_name(self, agent_id: str) -> Optional[str]:
-        """Delegate to the module-level resolver (kept as a method for existing callers)."""
-        return derive_herdr_agent_name(agent_id)
-
-    def handle_agent_prompt(self, agent_id: str) -> None:
-        """Submit a manual prompt to the agent."""
-        # This is a placeholder; you'd use herdr agent prompt or herdr pane send-text
-        self.send_json({
-            "agent_id": agent_id,
-            "status": "not_implemented_yet",
-            "message": "Manual prompt submission is not yet implemented. Use heartbeats or the UI."
-        })
+            member = next((row for row in desk.roster(paperclip_json, resolve_company_id()) if row['id'] == agent_id), None)
+            if not member:
+                raise PaperclipError('ایجنت در این شرکت پیدا نشد.', 404)
+            lines = query.get('lines', ['120'])[0]
+            source = query.get('source', ['recent-unwrapped'])[0]
+            if not lines.isdecimal() or len(lines) > 3 or not 1 <= int(lines) <= 200 or source not in ('recent-unwrapped', 'visible'):
+                raise PaperclipError('منبع خروجی یا تعداد خطوط نامعتبر است.', 400)
+            target = output_target(member)
+            if not safe_target(target):
+                raise PaperclipError('هدف Herdr معتبر نیست.', 400)
+            output = cli_text('agent', 'read', target, f'--source={source}', f'--lines={lines}')
+            self.send_json({'agent_id': agent_id, 'herdr_agent_name': target, 'output': output, 'success': True})
+        except PaperclipError as exc:
+            self.send_error_json(str(exc), exc.status)
+        except RuntimeError as exc:
+            self.send_error_json(str(exc), 503)
 
     def send_html_index(self) -> None:
         """Serve the dashboard HTML."""
-        html_path = os.path.join(os.path.dirname(__file__), "index.html")
-        with open(html_path, "r", encoding="utf-8") as f:
-            html_content = f.read()
+        self.send_asset('index.html', 'text/html')
+
+    def send_asset(self, name, mime):
+        # All names come from the fixed route table, never from a request path.
+        body = (Path(__file__).parent / name).read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header('Content-Type', mime if mime.startswith('font/') else mime + '; charset=utf-8')
+        self.send_header('Content-Security-Policy', "default-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'")
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Cache-Control', 'no-cache')
         self.end_headers()
-        self.wfile.write(html_content.encode("utf-8"))
+        self.wfile.write(body)
 
 
 def main():
