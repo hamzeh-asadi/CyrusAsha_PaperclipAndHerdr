@@ -15,6 +15,7 @@ from urllib.parse import urlparse, parse_qs, urlencode
 from typing import Dict, Any, Optional
 import subprocess
 import urllib.request
+from urllib.error import HTTPError as UrllibHTTPError, URLError
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
@@ -22,7 +23,8 @@ ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 def load_env_file(path: str) -> None:
     """Load KEY=VALUE pairs from a .env file.
 
-    Real environment variables always win; the file only fills the gaps.
+    The .env file always wins over existing environment variables so that
+    the dashboard configuration is deterministic regardless of shell state.
     Reads with utf-8-sig so the BOM written by PowerShell's Set-Content -Encoding UTF8
     does not corrupt the first key.
     """
@@ -35,7 +37,7 @@ def load_env_file(path: str) -> None:
                 continue
             key, _, value = line.partition("=")
             key = key.strip()
-            if key and key not in os.environ:
+            if key:
                 os.environ[key] = value.strip().strip('"').strip("'")
 
 
@@ -56,10 +58,14 @@ PAPERCLIP_AGENT_CACHE_TTL = float(os.getenv("PAPERCLIP_AGENT_CACHE_TTL", "30"))
 
 def check_paperclip_online() -> bool:
     """Return True when the Paperclip company endpoint answers with 200."""
+    url = f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}"
     try:
-        req = urllib.request.Request(f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}", method="GET")
+        req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=2) as res:
-            return res.status == 200
+            result = res.status == 200
+            return result
+    except UrllibHTTPError:
+        return False
     except Exception:
         return False
 
@@ -304,7 +310,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.handle_agent_output(agent_id, query)
         # Health check
         elif parsed.path == "/health":
-            self.send_json({"status": "ok", "paperclip": self.check_paperclip_online()})
+            self.send_json({"status": "ok", "paperclip": self.check_paperclip_online(), "debug_url": f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}", "debug_company": COMPANY_ID})
         # Index
         elif parsed.path == "/":
             self.send_html_index()
