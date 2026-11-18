@@ -2,6 +2,9 @@
 """Offline regression tests: python -m unittest discover -s dashboard -v"""
 import json
 import os
+import socket
+import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -119,9 +122,38 @@ class DashboardTests(unittest.TestCase):
         for body in ({"status": "starting"}, b"<html>not the API</html>"):
             self.upstream.routes["GET", "/api/health"] = (200, body)
             self.assertFalse(self.request("/health")[1]["paperclip"])
-        with patch.object(app._api, "open", side_effect=URLError("connection refused")):
+        with patch.object(app._direct_api, "open", side_effect=URLError(ConnectionRefusedError())):
             self.assertFalse(self.request("/health")[1]["paperclip"])
             self.assertEqual(self.request("/api/tickets")[0], 503)
+
+    def test_launcher_uses_real_public_health_without_a_loopback_proxy(self):
+        # The probe must honor the explicit URL even if dashboard/.env or the
+        # shell config points elsewhere. A bad system proxy must not intercept it.
+        url = f"http://localhost:{self.upstream.server_port}"
+        env = dict(os.environ, PAPERCLIP_API_URL="http://127.0.0.1:1", PAPERCLIP_API_KEY="test-only",
+                   http_proxy="http://127.0.0.1:1", HTTP_PROXY="http://127.0.0.1:1", NO_PROXY="", no_proxy="")
+        for status, body, expected in [(200, {"status": "ok"}, "ok"), (200, {"status": "starting"}, "starting"),
+                                       (403, {}, None), (200, b"<html>not the API</html>", None)]:
+            with self.subTest(status=status, expected=expected):
+                self.upstream.routes["GET", "/api/health"] = (status, body)
+                result = subprocess.run([sys.executable, app.__file__, "--probe-paperclip", url],
+                                        env=env, capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0 if expected else 1, result.stderr)
+                self.assertEqual(result.stdout.strip(), expected or "")
+                self.assertEqual(self.upstream.requests[-1], ("GET", "/api/health", None))
+
+    def test_health_distinguishes_absent_and_silent_listeners(self):
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            url = f"http://127.0.0.1:{listener.getsockname()[1]}"
+            self.assertEqual(app.paperclip_health_state(url, timeout=8), "refused")
+            listener.listen()  # accepts a connection, never sends HTTP headers
+            self.assertEqual(app.paperclip_health_state(url, timeout=.2), "timeout")
+
+    def test_non_loopback_uses_normal_proxy_policy(self):
+        with patch.object(app._api, "open", side_effect=URLError(TimeoutError())) as remote:
+            self.assertEqual(app.paperclip_health_state("https://paperclip.example"), "timeout")
+            remote.assert_called_once()
 
     def test_only_same_origin_post_can_wake_an_agent_from_a_browser(self):
         path = "/api/agents/worker/heartbeat/invoke"

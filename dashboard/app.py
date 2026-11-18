@@ -5,6 +5,7 @@ Scans agents, triggers heartbeats, lists tickets, and fetches recent agent outpu
 """
 
 import argparse
+import ipaddress
 import json
 import os
 import re
@@ -62,6 +63,14 @@ class PaperclipError(RuntimeError):
         self.status = status
 
 
+class PaperclipConnectionError(PaperclipError):
+    """A retryable transport failure, not an HTTP/authentication error."""
+
+    def __init__(self, state: str):
+        self.state = state
+        super().__init__(f"Paperclip connection {state}. Check PAPERCLIP_API_URL and the npm start terminal.", 503)
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     # An API response must be JSON, not a login page. Never forward a bearer
     # token to a redirect target.
@@ -70,22 +79,35 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 _api = urllib.request.build_opener(_NoRedirect())
+_direct_api = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
 
 
-def paperclip_json(path: str, method: str = "GET", timeout: int = 5) -> Any:
+def _is_loopback(host: str) -> bool:
+    if host.rstrip(".").lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def paperclip_json(path: str, method: str = "GET", timeout: float = 5, *, base_url: Optional[str] = None) -> Any:
+    url = (base_url if base_url is not None else PAPERCLIP_URL).rstrip("/")
     headers = {"Accept": "application/json"}
-    if PAPERCLIP_API_KEY and path != "/api/health":
+    if PAPERCLIP_API_KEY and base_url is None and path != "/api/health":
         headers["Authorization"] = f"Bearer {PAPERCLIP_API_KEY}"
     try:
-        base = urlparse(PAPERCLIP_URL)
+        base = urlparse(url)
         if (base.scheme not in ("http", "https") or not base.hostname or base.username is not None
                 or base.query or base.fragment):
             raise ValueError("invalid base URL")
-        req = urllib.request.Request(f"{PAPERCLIP_URL}{path}", headers=headers, method=method)
+        req = urllib.request.Request(f"{url}{path}", headers=headers, method=method)
     except ValueError as exc:
         raise PaperclipError("PAPERCLIP_API_URL must be an HTTP(S) base URL without credentials, query or fragment.") from exc
     try:
-        with _api.open(req, timeout=timeout) as response:
+        # Never send loopback traffic (including board credentials) to a system proxy.
+        opener = _direct_api if _is_loopback(base.hostname) else _api
+        with opener.open(req, timeout=timeout) as response:
             return json.load(response)
     except UrllibHTTPError as exc:
         exc.close()
@@ -96,16 +118,31 @@ def paperclip_json(path: str, method: str = "GET", timeout: int = 5) -> Any:
         status = exc.code if 400 <= exc.code < 500 else 502
         raise PaperclipError(f"Paperclip returned HTTP {exc.code} for {path}.", status) from exc
     except (URLError, OSError, HTTPException) as exc:
+        reason = exc.reason if isinstance(exc, URLError) else exc
+        if isinstance(reason, ConnectionRefusedError):
+            raise PaperclipConnectionError("refused") from exc
+        if isinstance(reason, TimeoutError):
+            raise PaperclipConnectionError("timeout") from exc
         raise PaperclipError("Cannot reach Paperclip. Check PAPERCLIP_API_URL and the npm start terminal.", 503) from exc
     except ValueError as exc:
         raise PaperclipError("Expected JSON from Paperclip. Check PAPERCLIP_API_URL (base URL without /api).") from exc
 
 
+def paperclip_health_state(base_url: Optional[str] = None, timeout: float = 3) -> str:
+    """One public readiness probe, shared by the Windows launcher and the dashboard."""
+    try:
+        data = paperclip_json("/api/health", timeout=timeout, base_url=base_url)
+    except PaperclipConnectionError as exc:
+        return exc.state
+    if not isinstance(data, dict) or data.get("status") not in ("ok", "starting"):
+        raise PaperclipError("Unexpected /api/health response. Check the Paperclip URL and port.")
+    return data["status"]
+
+
 def check_paperclip_online() -> bool:
     """Service readiness is independent of companies, agents and board credentials."""
     try:
-        data = paperclip_json("/api/health", timeout=3)
-        return isinstance(data, dict) and data.get("status") == "ok"
+        return paperclip_health_state() == "ok"
     except (PaperclipError, ValueError):
         return False
 
@@ -566,7 +603,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--open-browser", action="store_true", help="Open the dashboard after binding successfully")
+    parser.add_argument("--probe-paperclip", metavar="URL", help="Print one readiness state without starting the dashboard")
+    parser.add_argument("--probe-timeout", type=int, default=5, metavar="SECONDS")
     args = parser.parse_args()
+    if args.probe_paperclip is not None:
+        if not 1 <= args.probe_timeout <= 60:
+            parser.error("--probe-timeout must be between 1 and 60 seconds")
+        try:
+            print(paperclip_health_state(args.probe_paperclip, args.probe_timeout))
+        except (PaperclipError, ValueError) as exc:
+            parser.exit(1, f"Paperclip probe failed: {exc}\n")
+        return
     host = os.getenv("DASHBOARD_HOST", "127.0.0.1")
     try:
         port = int(os.getenv("DASHBOARD_PORT", "8000"))
