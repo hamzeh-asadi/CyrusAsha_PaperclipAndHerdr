@@ -8,3 +8,11 @@
 ## Reporting a Vulnerability
 Please report vulnerabilities responsibly to maintainers via private channels.
 Do not open public issues for security vulnerabilities.
+
+## Local deployment and dependency review (2026-11-18)
+
+The Python dashboard has no user authentication. Keep it on loopback; never expose it as a public proxy for a Paperclip board key. Keep `dashboard/.env`, instance data, and agent output private. A remote Paperclip API should use HTTPS and scoped credentials.
+
+The project-local npm install pins the official stable `paperclipai@2026.1106.0`. Two scoped patch overrides replace the upstream `better-auth` 1.7.2 and `@vercel/cli-config` 0.3.0 (including its old Zod) without downgrading the CLI. Global/npm-cache installations do **not** use this lockfile. Revisit the overrides when updating Paperclip.
+
+At review time `npm audit --omit=dev` on the lockfile still reported **1 high, 4 moderate, 0 critical** entries (counts include dependents). The remaining advisories are for [Zod bundled inside the upstream server](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) and [uuid via svix](https://github.com/advisories/GHSA-w5hq-g745-h8pq). An audit finding is not proof of exploitability in this setup, but this is not a production security clearance. Track a stable upstream update; do not run `npm audit fix --force` to roll back the runtime or edit vendored files in `node_modules`.

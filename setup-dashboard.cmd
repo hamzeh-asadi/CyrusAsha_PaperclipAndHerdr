@@ -22,9 +22,6 @@ if not exist "%~dp0setup-dashboard.ps1" (
     exit /b 1
 )
 
-REM Remove the "downloaded from internet" mark, then run the script for this run only.
-powershell.exe -NoProfile -Command "Unblock-File -LiteralPath '%~dp0setup-dashboard.ps1'" >nul 2>&1
-
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-dashboard.ps1" %*
 
 set EXITCODE=%ERRORLEVEL%

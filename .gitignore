@@ -1,2 +1,7 @@
-﻿# Local junction to %USERPROFILE%.agents - do not commit the linked tree
+# Local junction to %USERPROFILE%.agents - do not commit the linked tree
 .agents/
+
+node_modules/
+.env
+.paperclip/
+__pycache__/

@@ -1,0 +1,44 @@
+{
+  "name": "cyrusasha-paperclip-herdr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Paperclip runtime for the Paperclip + Herdr dashboard",
+  "engines": {
+    "node": "^24.15.0 || >=26.0.0",
+    "npm": ">=11.16.0"
+  },
+  "scripts": {
+    "start": "paperclipai onboard --yes --no-install-service",
+    "paperclip": "paperclipai",
+    "doctor": "paperclipai doctor",
+    "setup:copilot": "node node_modules/@paperclipai/server/scripts/install-copilot-assets.mjs"
+  },
+  "dependencies": {
+    "paperclipai": "2026.1106.0"
+  },
+  "allowScripts": {
+    "@embedded-postgres/darwin-arm64@18.1.0-beta.16": true,
+    "@embedded-postgres/darwin-x64@18.1.0-beta.16": true,
+    "@embedded-postgres/linux-arm@18.1.0-beta.16": true,
+    "@embedded-postgres/linux-arm64@18.1.0-beta.16": true,
+    "@embedded-postgres/linux-ia32@18.1.0-beta.16": true,
+    "@embedded-postgres/linux-ppc64@18.1.0-beta.16": true,
+    "@embedded-postgres/linux-x64@18.1.0-beta.16": true,
+    "@embedded-postgres/windows-x64@18.1.0-beta.16": true,
+    "esbuild@0.28.2": true,
+    "@paperclipai/server@2026.1106.0": false,
+    "cpu-features": false,
+    "opencode-ai@1.18.34": true,
+    "protobufjs": false,
+    "ssh2": false,
+    "fsevents": false
+  },
+  "overrides": {
+    "@paperclipai/server@2026.1106.0": {
+      "better-auth": "1.7.7"
+    },
+    "@vercel/oidc@3.8.9": {
+      "@vercel/cli-config": "0.3.6"
+    }
+  }
+}

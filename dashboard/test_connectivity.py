@@ -1,40 +1,23 @@
 #!/usr/bin/env python3
-"""Test script to verify Paperclip connectivity from the dashboard's perspective."""
-import os, sys, urllib.request, json
+"""Read-only diagnostic against the configured live Paperclip (no .env required)."""
+from app import COMPANY_ID, PAPERCLIP_URL, PaperclipError, list_agents_from_paperclip, paperclip_json
 
-# Simulate exactly what app.py does
-ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
-print(f"ENV_FILE: {ENV_FILE}")
-print(f"Exists: {os.path.isfile(ENV_FILE)}")
+def main() -> int:
+    print(f"Paperclip: {PAPERCLIP_URL} | company: {COMPANY_ID or '(auto)'}")
+    try:
+        health = paperclip_json("/api/health")
+        if not isinstance(health, dict) or health.get("status") != "ok":
+            print("Paperclip is not ready. Check the URL and the npm start terminal.")
+            return 1
+        print("Paperclip /api/health: ok")
+        agents = list_agents_from_paperclip()["agents"]
+    except (PaperclipError, ValueError) as exc:
+        print(f"Error: {exc}")
+        return 1
+    print(f"Company accessible; {len(agents)} agent(s). Herdr is not required for this check.")
+    return 0
 
-# Load env file (new behavior: .env always wins)
-with open(ENV_FILE, "r", encoding="utf-8-sig") as handle:
-    for raw in handle:
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        if key:
-            os.environ[key] = value.strip().strip('"').strip("'")
 
-PAPERCLIP_URL = os.getenv("PAPERCLIP_API_URL", "http://localhost:3100")
-COMPANY_ID = os.getenv("PAPERCLIP_COMPANY_ID", "856affb4-69f1-44cb-a690-e4c2e6b2769d")
-
-print(f"PAPERCLIP_URL: {PAPERCLIP_URL}")
-print(f"COMPANY_ID: {COMPANY_ID}")
-
-# Test
-url = f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}"
-print(f"\nTesting: {url}")
-
-try:
-    req = urllib.request.Request(url, method="GET")
-    with urllib.request.urlopen(req, timeout=3) as res:
-        data = json.loads(res.read().decode("utf-8"))
-        print(f"SUCCESS: {res.status} → {data.get('name', 'N/A')}")
-except urllib.error.HTTPError as e:
-    print(f"HTTP ERROR: {e.code}")
-except Exception as e:
-    print(f"ERROR: {type(e).__name__}: {e}")
+if __name__ == "__main__":
+    raise SystemExit(main())

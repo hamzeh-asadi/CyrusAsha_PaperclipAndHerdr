@@ -4,18 +4,19 @@ Backend server for Paperclip+Herdr unified dashboard.
 Scans agents, triggers heartbeats, lists tickets, and fetches recent agent output.
 """
 
+import argparse
+import json
 import os
 import re
-import sys
-import json
-import time
-import socket
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs, urlencode
-from typing import Dict, Any, Optional
 import subprocess
+import time
 import urllib.request
+import webbrowser
+from http.client import HTTPException
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, Dict, Optional
 from urllib.error import HTTPError as UrllibHTTPError, URLError
+from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
@@ -44,11 +45,9 @@ def load_env_file(path: str) -> None:
 load_env_file(ENV_FILE)
 
 # Configuration
-PAPERCLIP_URL = os.getenv("PAPERCLIP_API_URL", "http://localhost:3100")
-COMPANY_ID = os.getenv("PAPERCLIP_COMPANY_ID", "856affb4-69f1-44cb-a690-e4c2e6b2769d")
-HERDR_HOST = os.getenv("HERDR_HOST", "localhost")
-HERDR_PORT = int(os.getenv("HERDR_PORT", 50800))
-AGENT_PING_TIMEOUT = int(os.getenv("AGENT_PING_TIMEOUT", 2000))
+PAPERCLIP_URL = (os.getenv("PAPERCLIP_API_URL") or "http://localhost:3100").strip().rstrip("/")
+COMPANY_ID = os.getenv("PAPERCLIP_COMPANY_ID", "").strip()
+PAPERCLIP_API_KEY = os.getenv("PAPERCLIP_API_KEY", "").strip()
 # Explicit Paperclip -> Herdr mapping for agents whose names differ, e.g.
 #   HERDR_AGENT_MAP=856affb4-...=agy-worker,Freebuff-Coder=w2:p1
 # Keys may be a Paperclip agent id or agent name; values are Herdr names or pane ids.
@@ -56,27 +55,102 @@ HERDR_AGENT_MAP = os.getenv("HERDR_AGENT_MAP", "")
 HERDR_CACHE_TTL = float(os.getenv("HERDR_CACHE_TTL", "10"))
 PAPERCLIP_AGENT_CACHE_TTL = float(os.getenv("PAPERCLIP_AGENT_CACHE_TTL", "30"))
 
-def check_paperclip_online() -> bool:
-    """Return True when the Paperclip company endpoint answers with 200."""
-    url = f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}"
+
+class PaperclipError(RuntimeError):
+    def __init__(self, message: str, status: int = 502):
+        super().__init__(message)
+        self.status = status
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    # An API response must be JSON, not a login page. Never forward a bearer
+    # token to a redirect target.
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_api = urllib.request.build_opener(_NoRedirect())
+
+
+def paperclip_json(path: str, method: str = "GET", timeout: int = 5) -> Any:
+    headers = {"Accept": "application/json"}
+    if PAPERCLIP_API_KEY and path != "/api/health":
+        headers["Authorization"] = f"Bearer {PAPERCLIP_API_KEY}"
     try:
-        req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=2) as res:
-            result = res.status == 200
-            return result
-    except UrllibHTTPError:
+        base = urlparse(PAPERCLIP_URL)
+        if (base.scheme not in ("http", "https") or not base.hostname or base.username is not None
+                or base.query or base.fragment):
+            raise ValueError("invalid base URL")
+        req = urllib.request.Request(f"{PAPERCLIP_URL}{path}", headers=headers, method=method)
+    except ValueError as exc:
+        raise PaperclipError("PAPERCLIP_API_URL must be an HTTP(S) base URL without credentials, query or fragment.") from exc
+    try:
+        with _api.open(req, timeout=timeout) as response:
+            return json.load(response)
+    except UrllibHTTPError as exc:
+        exc.close()
+        if exc.code in (401, 403):
+            raise PaperclipError(
+                f"Paperclip HTTP {exc.code}: check PAPERCLIP_API_KEY and its permissions.", exc.code
+            ) from exc
+        status = exc.code if 400 <= exc.code < 500 else 502
+        raise PaperclipError(f"Paperclip returned HTTP {exc.code} for {path}.", status) from exc
+    except (URLError, OSError, HTTPException) as exc:
+        raise PaperclipError("Cannot reach Paperclip. Check PAPERCLIP_API_URL and the npm start terminal.", 503) from exc
+    except ValueError as exc:
+        raise PaperclipError("Expected JSON from Paperclip. Check PAPERCLIP_API_URL (base URL without /api).") from exc
+
+
+def check_paperclip_online() -> bool:
+    """Service readiness is independent of companies, agents and board credentials."""
+    try:
+        data = paperclip_json("/api/health", timeout=3)
+        return isinstance(data, dict) and data.get("status") == "ok"
+    except (PaperclipError, ValueError):
         return False
-    except Exception:
-        return False
+
+
+def resolve_company_id() -> str:
+    if COMPANY_ID:
+        # Some collection endpoints return [] even for an unknown company.
+        try:
+            company = paperclip_json(f"/api/companies/{quote(COMPANY_ID, safe='')}")
+        except PaperclipError as exc:
+            if exc.status != 404:
+                raise
+            company = None
+        if not isinstance(company, dict) or company.get("id") != COMPANY_ID:
+            raise PaperclipError(
+                "Unknown PAPERCLIP_COMPANY_ID. Clear or correct it in dashboard/.env and restart the dashboard.", 409
+            )
+        return COMPANY_ID
+
+    companies = paperclip_json("/api/companies")
+    if not isinstance(companies, list):
+        raise PaperclipError("Expected a company list from Paperclip.")
+    if not companies:
+        raise PaperclipError(f"Create a company in Paperclip ({PAPERCLIP_URL}); the dashboard will retry automatically.", 409)
+    if len(companies) > 1:
+        raise PaperclipError(
+            "Multiple companies. Choose an id from /api/companies, set PAPERCLIP_COMPANY_ID "
+            "in dashboard/.env and restart the dashboard.", 409
+        )
+    company = companies[0]
+    if not isinstance(company, dict) or not isinstance(company.get("id"), str) or not company["id"]:
+        raise PaperclipError("Paperclip returned a company without an id.")
+    return company["id"]
+
+
+def company_collection(collection: str) -> list:
+    company_id = quote(resolve_company_id(), safe="")
+    rows = paperclip_json(f"/api/companies/{company_id}/{collection}")
+    if not isinstance(rows, list):
+        raise PaperclipError("Expected a list from the Paperclip API.")
+    return rows
 
 
 def list_agents_from_paperclip() -> Dict[str, Any]:
-    """Fetch the agent list from the Paperclip API."""
-    url = f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}/agents"
-    req = urllib.request.Request(url, method="GET")
-    with urllib.request.urlopen(req, timeout=5) as res:
-        data = json.loads(res.read().decode("utf-8"))
-    return {"agents": data, "paperclip_online": check_paperclip_online()}
+    return {"agents": company_collection("agents"), "paperclip_online": True}
 
 
 # --- Herdr agent mapping -----------------------------------------------------
@@ -297,10 +371,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # Scan all agents
         if parsed.path == "/api/agents":
             self.handle_agents(query)
-        # Ping a specific agent via heartbeat
-        elif parsed.path.startswith("/api/agents/") and parsed.path.endswith("/heartbeat/invoke"):
-            agent_id = parsed.path[len("/api/agents/"):-len("/heartbeat/invoke")]
-            self.handle_heartbeat(agent_id, query)
         # List tickets (optional filter by agent)
         elif parsed.path == "/api/tickets":
             self.handle_tickets(query)
@@ -310,7 +380,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.handle_agent_output(agent_id, query)
         # Health check
         elif parsed.path == "/health":
-            self.send_json({"status": "ok", "paperclip": self.check_paperclip_online(), "debug_url": f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}", "debug_company": COMPANY_ID})
+            self.send_json({"status": "ok", "paperclip": self.check_paperclip_online()})
         # Index
         elif parsed.path == "/":
             self.send_html_index()
@@ -320,7 +390,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
 
-        # Trigger heartbeat manually via POST (alternative to GET)
+        # This local dashboard uses server-side credentials. Only same-origin
+        # browser requests (or a non-browser client) may trigger actions.
+        origin = self.headers.get("Origin")
+        host = self.headers.get("Host", "").lower()
+        if self.headers.get("Sec-Fetch-Site") == "cross-site" or (
+            origin and origin.lower() not in (f"http://{host}", f"https://{host}")
+        ):
+            self.send_error_json("Cross-origin action denied", status=403)
+            return
+
+        # Trigger heartbeat manually via POST
         if parsed.path.startswith("/api/agents/") and parsed.path.endswith("/heartbeat/invoke"):
             agent_id = parsed.path[len("/api/agents/"):-len("/heartbeat/invoke")]
             self.handle_heartbeat(agent_id, {})
@@ -340,6 +420,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         try:
             agents = self.list_agents_from_paperclip()
             self.send_json(agents)
+        except PaperclipError as e:
+            self.send_error_json(str(e), status=e.status)
         except Exception as e:
             self.send_error_json(str(e), status=500)
 
@@ -352,16 +434,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         try:
             result = self.trigger_heartbeat(agent_id)
             self.send_json(result)
+        except PaperclipError as e:
+            self.send_error_json(str(e), status=e.status)
         except Exception as e:
             self.send_error_json(str(e), status=500)
 
     def trigger_heartbeat(self, agent_id: str) -> Dict[str, Any]:
         """Call Paperclip's heartbeat endpoint for the agent."""
-        import urllib.request
-        url = f"{PAPERCLIP_URL}/api/agents/{agent_id}/heartbeat/invoke"
-        req = urllib.request.Request(url, method="POST")
-        with urllib.request.urlopen(req, timeout=5) as res:
-            resp = json.loads(res.read().decode("utf-8"))
+        resp = paperclip_json(f"/api/agents/{quote(agent_id, safe='')}/heartbeat/invoke", method="POST")
         return {"agent_id": agent_id, "status": "triggered", "response": resp}
 
     def handle_tickets(self, query: Dict[str, list]) -> None:
@@ -369,28 +449,28 @@ class DashboardHandler(BaseHTTPRequestHandler):
         try:
             tickets = self.list_tickets_from_paperclip(query)
             self.send_json(tickets)
+        except PaperclipError as e:
+            self.send_error_json(str(e), status=e.status)
         except Exception as e:
             self.send_error_json(str(e), status=500)
 
     def list_tickets_from_paperclip(self, query: Dict[str, list]) -> Dict[str, Any]:
         """Fetch tickets from Paperclip API."""
-        import urllib.request
         assignee = query.get("assigneeAgentId", [""])[0] if query.get("assigneeAgentId") else ""
         status = query.get("status", ["todo,in_progress"])[0] if query.get("status") else "todo,in_progress"
         params = {"status": status}
         if assignee:
             params["assigneeAgentId"] = assignee
-        url = f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}/issues?{urlencode(params)}"
-        req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=5) as res:
-            data = json.loads(res.read().decode("utf-8"))
-        return {"tickets": data, "paperclip_online": self.check_paperclip_online()}
+        data = company_collection(f"issues?{urlencode(params)}")
+        return {"tickets": data, "paperclip_online": True}
 
     def handle_agent_output(self, agent_id: str, query: Dict[str, list]) -> None:
         """Get recent output for the specified agent from Herdr."""
         try:
             output = self.get_agent_output_from_herdr(agent_id, query)
             self.send_json(output)
+        except PaperclipError as e:
+            self.send_error_json(str(e), status=e.status)
         except Exception as e:
             self.send_error_json(str(e), status=500)
 
@@ -484,11 +564,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    host = os.getenv("DASHBOARD_HOST", "0.0.0.0")
-    port = int(os.getenv("DASHBOARD_PORT", "8000"))
-    print(f"Dashboard backend listening on {host}:{port} (Paperclip API: {PAPERCLIP_URL})")
-    server = HTTPServer((host, port), DashboardHandler)
-    server.serve_forever()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--open-browser", action="store_true", help="Open the dashboard after binding successfully")
+    args = parser.parse_args()
+    host = os.getenv("DASHBOARD_HOST", "127.0.0.1")
+    try:
+        port = int(os.getenv("DASHBOARD_PORT", "8000"))
+        if not 0 <= port <= 65535:
+            raise ValueError
+    except ValueError:
+        parser.error("DASHBOARD_PORT must be an integer between 0 and 65535")
+    try:
+        server = HTTPServer((host, port), DashboardHandler)
+    except OSError as exc:
+        parser.exit(1, f"Cannot bind the dashboard at {host}:{port}: {exc}. Check DASHBOARD_HOST and DASHBOARD_PORT.\n")
+    with server:
+        browse_host = "localhost" if host in ("", "0.0.0.0") else host
+        url = f"http://{browse_host}:{server.server_port}"
+        print(f"Dashboard: {url} (Paperclip API: {PAPERCLIP_URL})", flush=True)
+        if args.open_browser:
+            webbrowser.open(url)
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == "__main__":

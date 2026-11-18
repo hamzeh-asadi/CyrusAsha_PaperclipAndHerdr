@@ -30,7 +30,7 @@ dashboard/
 
 `app.py` reads `dashboard/.env` at import time through `load_env_file()`, so values
 from that file apply without exporting them in the shell. Real environment
-variables always take precedence over the file.
+variables are used when the file does not specify that key.
 
 ## API Endpoints
 
@@ -56,8 +56,8 @@ variables always take precedence over the file.
 - When nothing resolves, `success` is `false`, `herdr_agent_name` is `null` and `error` explains which `HERDR_AGENT_MAP` entry to add and lists the live Herdr targets. `herdr agent read` is never called with a Paperclip UUID.
 
 ### GET /health
-- Returns: `{"status": "ok", "paperclip_online": bool}`
-- Use: Health check
+- Returns: `{"status": "ok", "paperclip": bool}`
+- Use: dashboard liveness plus Paperclip readiness (`GET /api/health`, not a company or agent lookup)
 
 ## HTTP Request Flow
 
@@ -104,38 +104,16 @@ Frontend alerts user
 
 ## Configuration Flow
 
-### 1. Environment Variables (highest priority — `.env` never overrides them)
-```
-DASHBOARD_HOST=0.0.0.0
-DASHBOARD_PORT=8000
-PAPERCLIP_API_URL=http://localhost:3100
-PAPERCLIP_COMPANY_ID=...
-HERDR_HOST=localhost
-HERDR_PORT=50800
-HERDR_AGENT_MAP=<paperclip-id-or-name>=<herdr-name-or-pane>,...
-```
+`dashboard/.env` (UTF-8, optional BOM) overrides shell variables; absent keys
+fall back to the environment, then code defaults. The Windows launcher persists
+explicit command-line settings without replacing unrelated keys. See
+[the dashboard README](README.md) for the configuration table.
 
-### 2. `dashboard/.env` (loaded by `load_env_file()` at import time)
-```
-PAPERCLIP_API_URL=http://localhost:3100
-PAPERCLIP_COMPANY_ID=...
-HERDR_AGENT_MAP=856affb4-...=agy-worker,Freebuff-Coder=w2:p1
-DASHBOARD_HOST=0.0.0.0
-DASHBOARD_PORT=8000
-```
-
-The file is opened with `utf-8-sig`, so a BOM (as written by PowerShell's
-`Set-Content -Encoding UTF8`) does not corrupt the first key. Blank lines and
-`#` comments are skipped, surrounding quotes are stripped, and a key that is
-already present in the real environment is left untouched.
-
-### 3. Code Defaults (fallback)
-```python
-PAPERCLIP_API_URL = "http://localhost:3100"
-COMPANY_ID = "856affb4-69f1-44cb-a690-e4c2e6b2769d"
-HERDR_HOST = "localhost"
-HERDR_PORT = 50800
-```
+An explicit company id is checked using its company endpoint (also works for
+scoped credentials). Without one, exactly one company must be discoverable via
+`GET /api/companies`. A healthy empty instance is not an offline instance.
+`PAPERCLIP_API_KEY`, if set, is used only on server-side Paperclip API requests;
+public readiness probes do not require it.
 
 ## State Management Strategy
 
@@ -148,9 +126,9 @@ HERDR_PORT = 50800
 
 ### Backend (Server-side)
 - **State**: None (all state comes from external services)
-- **Caching**: No in-memory cache (each request fetches fresh data)
+- **Caching**: Brief agent-name mapping caches; collection endpoints read fresh data
 - **Concurrency**: a single-threaded `HTTPServer` — one request at a time
-- **Error Handling**: Return HTTP 500 with error message
+- **Error Handling**: Use 409 for missing/ambiguous company settings, 401/403 for upstream access failures, 503 for an unreachable server
 
 ## Scaling Considerations
 

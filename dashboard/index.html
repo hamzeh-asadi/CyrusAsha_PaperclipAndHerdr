@@ -286,6 +286,8 @@
       </div>
     </header>
 
+    <p id="connectionMessage" class="error" role="status" hidden></p>
+
     <nav class="tabs">
       <div class="tab active" onclick="switchTab('agents')">ایجنت‌ها</div>
       <div class="tab" onclick="switchTab('tickets')">تیکت‌ها</div>
@@ -304,10 +306,11 @@
 
   <script>
     // Same origin as the page, so a custom DASHBOARD_PORT keeps working
-    const API_BASE = `${window.location.origin}/api`;
+    const API_BASE = "/api";
     const POLL_INTERVAL = 5 * 1000; // 5 seconds
     let pollTimer = null;
-    let isPolling = false;
+    let refreshing = false;
+    let paperclipOnline = false;
 
     // State
     let agents = [];
@@ -318,12 +321,12 @@
 
     // Load from localStorage on init
     document.addEventListener("DOMContentLoaded", () => {
-      loadState();
+      try { loadState(); } catch { /* invalid or unavailable cache */ }
       refreshAll();
       startPolling();
     });
 
-    async function loadState() {
+    function loadState() {
       const storedAgents = localStorage.getItem("dashboard_agents");
       const storedTickets = localStorage.getItem("dashboard_tickets");
       if (storedAgents) agents = JSON.parse(storedAgents);
@@ -331,63 +334,64 @@
     }
 
     function saveState() {
-      localStorage.setItem("dashboard_agents", JSON.stringify(agents));
-      localStorage.setItem("dashboard_tickets", JSON.stringify(tickets));
+      // Cache presentation fields only, never adapter config or ticket bodies.
+      localStorage.setItem("dashboard_agents", JSON.stringify(agents.map(({id, name, adapterType, role, status, lastHeartbeatAt}) =>
+        ({id, name, adapterType, role, status, lastHeartbeatAt}))));
+      localStorage.setItem("dashboard_tickets", JSON.stringify(tickets.map(({id, title, status}) => ({id, title, status}))));
+    }
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
     }
 
     async function refreshAll() {
-      await Promise.all([fetchAgents(), fetchTickets()]);
-      saveState();
+      if (refreshing) return;
+      refreshing = true;
+      const messages = new Set();
+      try {
+        // A new instance can be healthy with no companies and no agents.
+        paperclipOnline = (await fetchJson("/health")).paperclip === true;
+        if (!paperclipOnline) throw new Error("Paperclip آماده نیست. خروجی npm start و آدرس PAPERCLIP_API_URL را بررسی کنید.");
+        const [a, t] = await Promise.allSettled([
+          fetchJson(`${API_BASE}/agents`), fetchJson(`${API_BASE}/tickets`)
+        ]);
+        agents = a.status === "fulfilled" ? a.value.agents : [];
+        tickets = t.status === "fulfilled" ? t.value.tickets : [];
+        for (const result of [a, t]) {
+          if (result.status === "rejected") messages.add(result.reason.message);
+        }
+      } catch (err) {
+        paperclipOnline = false;
+        agents = [];
+        tickets = [];
+        messages.add(err.message);
+      } finally {
+        refreshing = false;
+      }
+      const notice = document.getElementById("connectionMessage");
+      notice.textContent = [...messages].join(" — ");
+      notice.hidden = !messages.size;
       updateUI();
+      try { saveState(); } catch { /* storage may be disabled */ }
     }
 
-    async function fetchAgents() {
-      try {
-        const res = await fetch(`${API_BASE}/agents`);
-        const data = await res.json();
-        if (data.agents) {
-          agents = data.agents;
-          // Update online status for each agent
-          agents = agents.map(agent => ({
-            ...agent,
-            online: data.paperclip_online,
-            lastHeartbeat: Date.now()
-          }));
-        }
-      } catch (e) {
-        console.error("Failed to fetch agents:", e);
-      }
-    }
-
-    async function fetchTickets() {
-      try {
-        const res = await fetch(`${API_BASE}/tickets`);
-        const data = await res.json();
-        if (data.tickets) {
-          tickets = data.tickets;
-        }
-      } catch (e) {
-        console.error("Failed to fetch tickets:", e);
-      }
-    }
-
-    async function triggerHeartbeat(agentId) {
-      const btn = document.querySelector(`button[data-agent="${agentId}"]`);
-      if (!btn) return;
+    async function triggerHeartbeat(agentId, btn) {
       btn.disabled = true;
       btn.textContent = "در حال ارسال...";
 
       try {
-        const res = await fetch(`${API_BASE}/agents/${agentId}/heartbeat/invoke`, {
+        const data = await fetchJson(`${API_BASE}/agents/${encodeURIComponent(agentId)}/heartbeat/invoke`, {
           method: "POST"
         });
-        const data = await res.json();
         if (data.status === "triggered") {
           // Trigger output refresh after a short delay
           setTimeout(refreshAgentOutput, 1500, agentId);
         }
       } catch (e) {
-        console.error("Failed to trigger heartbeat:", e);
+        alert(`بیدارباش ارسال نشد: ${e.message}`);
       }
 
       btn.disabled = false;
@@ -396,13 +400,12 @@
 
     async function refreshAgentOutput(agentId) {
       try {
-        const res = await fetch(`${API_BASE}/agents/${agentId}/output`);
-        const data = await res.json();
+        const data = await fetchJson(`${API_BASE}/agents/${encodeURIComponent(agentId)}/output`);
         agentOutputs[agentId] = {
           text: data.success ? (data.output || "خروجی خالی") : (data.error || "خطا در خواندن خروجی"),
           error: !data.success
         };
-        const outputContainer = document.querySelector(`#output-${agentId}`);
+        const outputContainer = document.getElementById(`output-${agentId}`);
         if (outputContainer) {
           outputContainer.textContent = agentOutputs[agentId].text;
           outputContainer.classList.remove("empty", "error");
@@ -425,7 +428,7 @@
       // Only rebuild the cards when the data actually changed, otherwise the 5s poll
       // would drop the textarea focus and the typed manual prompt.
       const signature = agents
-        .map(a => `${a.id}|${a.name}|${a.adapterType || ""}|${a.role || ""}|${a.online}`)
+        .map(a => JSON.stringify([a.id, a.name, a.adapterType, a.role, a.status, a.lastHeartbeatAt]))
         .join(";");
       if (grid.dataset.signature === signature && grid.childElementCount === agents.length) {
         return;
@@ -447,37 +450,40 @@
               <div class="agent-name">${escapeHtml(agent.name)}</div>
               <div class="agent-type">${escapeHtml(agent.adapterType || "unknown")}</div>
             </div>
-            <div class="status-badge ${agent.online ? "online" : ""}">
-              ${agent.online ? "آنلاین" : "آفلاین"}
+            <div class="status-badge ${agent.status === "running" ? "online" : ""}">
+              ${escapeHtml(agent.status || "نامشخص")}
             </div>
           </div>
           <div class="status-row">
             <span>نقش: ${escapeHtml(agent.role || "unknown")}</span>
           </div>
           <div class="status-row">
-            <span>آخرین بیدار: ${formatTime(agent.lastHeartbeat || Date.now())}</span>
+            <span>آخرین بیدار: ${agent.lastHeartbeatAt ? formatTime(agent.lastHeartbeatAt) : "ثبت نشده"}</span>
           </div>
           <div class="status-row">
-            <button class="btn btn-primary" data-agent="${escapeHtml(agent.id)}" onclick="triggerHeartbeat('${escapeJs(agent.id)}')">
+            <button class="btn btn-primary wake-agent">
               بیدار کردن
             </button>
           </div>
           <div class="manual-prompt-section">
             <div style="font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">پرامپت دستی</div>
             <div class="prompt-box">
-              <textarea id="prompt-${escapeJs(agent.id)}" placeholder="هر نوع دستوری برای این ایجنت..."></textarea>
-              <button class="btn" onclick="sendManualPrompt('${escapeJs(agent.id)}')">ارسال پرامپت</button>
+              <textarea placeholder="هر نوع دستوری برای این ایجنت..."></textarea>
+              <button class="btn send-prompt">ارسال پرامپت</button>
             </div>
           </div>
-          <div class="output-section empty" id="output-${escapeJs(agent.id)}">
+          <div class="output-section empty">
             خروجی اخیر...
           </div>
         `;
-        const promptBox = card.querySelector(`#prompt-${CSS.escape(agent.id)}`);
-        if (promptBox) {
-          promptBox.value = promptDrafts[agent.id] || "";
-          promptBox.addEventListener("input", () => { promptDrafts[agent.id] = promptBox.value; });
-        }
+        const wakeButton = card.querySelector(".wake-agent");
+        wakeButton.addEventListener("click", () => triggerHeartbeat(agent.id, wakeButton));
+        card.querySelector(".send-prompt").addEventListener("click", () => sendManualPrompt(agent.id));
+        card.querySelector(".output-section").id = `output-${agent.id}`;
+        const promptBox = card.querySelector("textarea");
+        promptBox.id = `prompt-${agent.id}`;
+        promptBox.value = promptDrafts[agent.id] || "";
+        promptBox.addEventListener("input", () => { promptDrafts[agent.id] = promptBox.value; });
 
         const cachedOutput = agentOutputs[agent.id];
         if (cachedOutput) {
@@ -492,17 +498,17 @@
     }
 
     async function sendManualPrompt(agentId) {
-      const textarea = document.getElementById(`prompt-${escapeJs(agentId)}`);
+      const textarea = document.getElementById(`prompt-${agentId}`);
       const prompt = textarea.value.trim();
       if (!prompt) return alert("لطفاً یک پرامپت وارد کنید");
 
       try {
-        const res = await fetch(`${API_BASE}/agents/${agentId}/prompt`, {
+        const data = await fetchJson(`${API_BASE}/agents/${encodeURIComponent(agentId)}/prompt`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt })
         });
-        const data = await res.json();
+        if (data.status === "not_implemented_yet") return alert("ارسال پرامپت دستی هنوز پیاده‌سازی نشده است.");
         alert(data.message || "پرامپت ارسال شد");
         textarea.value = "";
         setTimeout(refreshAgentOutput, 2000, agentId);
@@ -523,7 +529,7 @@
       tickets.forEach(ticket => {
         const item = document.createElement("div");
         item.className = "ticket-item";
-        const statusClass = ticket.status || "unknown";
+        const statusClass = ["todo", "in_progress", "in_review", "blocked"].includes(ticket.status) ? ticket.status : "";
 
         item.innerHTML = `
           <div class="ticket-title">${escapeHtml(ticket.title || "بدون عنوان")}</div>
@@ -538,9 +544,8 @@
 
     function updateGlobalStatus() {
       const badge = document.getElementById("statusBadge");
-      const isOnline = agents.some(a => a.online);
-      badge.className = `status-badge ${isOnline ? "online" : ""}`;
-      badge.textContent = isOnline ? "سیستم آنلاین" : "سیستم آفلاین";
+      badge.className = `status-badge ${paperclipOnline ? "online" : ""}`;
+      badge.textContent = paperclipOnline ? "Paperclip آنلاین" : "Paperclip در دسترس نیست";
     }
 
     function switchTab(tabName) {
@@ -555,12 +560,10 @@
     }
 
     function startPolling() {
-      isPolling = true;
       pollTimer = setInterval(refreshAll, POLL_INTERVAL);
     }
 
     function stopPolling() {
-      isPolling = false;
       if (pollTimer) clearInterval(pollTimer);
     }
 
@@ -569,10 +572,6 @@
       const div = document.createElement("div");
       div.textContent = str;
       return div.innerHTML;
-    }
-
-    function escapeJs(str) {
-      return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
     }
 
     function formatTime(timestamp) {

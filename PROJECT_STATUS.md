@@ -1,154 +1,28 @@
-# Unified Dashboard - Project Status
+<div dir="rtl">
 
-## Created Files
+# نتیجهٔ بازبینی Paperclip و Herdr — ۱۸ نوامبر ۲۰۲۶
 
-### Dashboard Frontend & Backend
-- ✅ `dashboard/app.py` (9.6 KB) - Backend HTTP server
-- ✅ `dashboard/index.html` (15 KB) - Frontend UI
-- ✅ `dashboard/test_apis.py` (2.7 KB) - API tests
+**نتیجه:** این مخزن اکنون با `npm ci` و `npm start` سرور رسمی Paperclip را اجرا می‌کند. داشبورد پایتون یک کلاینت جداست؛ نه Herdr، نه کلید مدل و نه Flask برای دیدن تابلوی یک شرکت لازم نیستند. برای دستورهای نصب و بازیابی به [بخش ۲ راهنما](README.md#۲-نصب-paperclip) رجوع کنید.
 
-### Configuration & Documentation
-- ✅ `dashboard/.env.example` (392 B) - Environment template
-- ✅ `dashboard/.gitignore` (215 B) - Git exclusions
-- ✅ `dashboard/README.md` (2.3 KB) - Quick start guide
-- ✅ `dashboard/CONSTRUCTION.md` (9.6 KB) - Detailed construction guide
-- ✅ `dashboard/SERVER_ARCHITECTURE.md` (3.9 KB) - Server architecture docs
+| بخش | مشکل مشاهده‌شده | تغییر |
+|---|---|---|
+| نصب npm | `npm start` در ریشه با `ENOENT` متوقف می‌شد؛ هیچ `package.json` وجود نداشت. | بستهٔ رسمی `paperclipai` و وابستگی‌ها قفل شدند. مرحلهٔ پرمصرف آماده‌سازی اختیاری Copilot که در نصب آزمایشی با ۴ گیگابایت حافظه متوقف شد، از نصب اصلی جدا شد. `npm start` در اجرای اول تنظیمات را می‌سازد و در اجراهای بعدی از همان داده‌ها استفاده می‌کند. |
+| راه‌انداز ویندوز | حتی برای خطای دسترسی تلاش می‌کرد `@latest` را در پنجرهٔ دیگری اجرا کند. نصب سرد و آماده شدن سرور روی هم حدود ۲۵ ثانیه فرصت داشتند و شکست مانع شروع داشبورد نمی‌شد. | ابتدا `/api/health` را می‌سنجد. برای سرور آماده، npm لازم نیست؛ برای شروع نمونهٔ محلی، نسخهٔ Node و نصب پروژه بررسی می‌شوند. خطای نصب یا خروج زودهنگام نمایش داده می‌شود و مهلت آمادگی پس از نصب آغاز می‌شود. |
+| تشخیص وضعیت | روی یک سرور واقعی با `status: ok`، داشبورد به دلیل شناسهٔ ثابت شرکت یا نداشتن ایجنت، آفلاین نشان می‌داد. | آمادگی سرور از دسترسی به شرکت جداست. تنها شرکت خودکار پیدا می‌شود؛ برای نبود شرکت، چند شرکت، شناسهٔ نامعتبر و خطای مجوز پیام جدا داده می‌شود. |
+| تنظیمات و دسترسی | راه‌انداز در اجرای مجدد فایل `.env` را بازنویسی می‌کرد و بک‌اند از کلید API مستندشده استفاده نمی‌کرد. | تنظیمات نامرتبط حفظ می‌شوند. کلید فقط در درخواست سمت سرور به کار می‌رود. بیدارباش از مرورگر نیاز به `POST` هم‌مبدأ دارد و داشبورد به‌طور پیش‌فرض فقط روی آدرس محلی گوش می‌دهد. |
+| پل Herdr | هر خطای checkout مانند تداخل مالکیت گزارش می‌شد و پس از ارسال ناموفق پرامپت، یک وضعیت `idle` می‌توانست باعث تغییر اشتباه وضعیت تیکت شود. | فقط `409` به‌عنوان تداخل نادیده گرفته می‌شود؛ در خطای ارسال/خواندن، تیکت برای بررسی باز می‌ماند. |
 
-### Setup Automation
-- ✅ `setup-dashboard.ps1` (3.9 KB) - Automated setup script
+### چه چیزی آزمایش شد؟
 
-## Feature Status
+- اجرای واقعی در لینوکس با Node 24.22.3، `paperclipai@2026.1106.0` و PostgreSQL داخلی در مسیر دادهٔ موقت. سرور `/api/health` پاسخ `ok` داد. پس از ساخت یک شرکت و تیکت آزمایشی و اجرای مجدد، داشبورد با **صفر ایجنت** آنلاین ماند و همان تیکت را خواند.
+- `python -m unittest discover -s dashboard -v` — آزمون‌های HTTP مستقل از سرویس واقعی برای سلامت، انتخاب شرکت، احراز هویت، بیدارباش و خطاهای اتصال.
+- `python tests/test_bridge.py` — شش حالت موفقیت/شکست با Bash، curl و jq واقعی و Paperclip/Herdr ساختگی. این آزمون، اجرای واقعی Hermes یا کار یک ایجنت روی تیکت را تأیید نمی‌کند.
+- `python dashboard/test_connectivity.py` — بررسی فقط‌خواندنی نصب خودتان؛ نیازی به فایل `.env` ندارد و در صورت خطا با کد غیرصفر خارج می‌شود.
 
-### Implemented ✅
-- [x] Agent discovery via Paperclip API
-- [x] Heartbeat-based wake-up
-- [x] Ticket listing (with status filters)
-- [x] Agent output display (from Herdr)
-- [x] Auto-polling (5s interval)
-- [x] Manual prompt interface (UI ready, backend placeholder)
-- [x] Persian RTL UI
-- [x] LocalStorage for state persistence
-- [x] Health check endpoint
-- [x] Environment-based configuration
-- [x] Setup automation (PowerShell)
+### محدودیت‌های باقی‌مانده
 
-### Partial / TODO ⏳
-- [x] Herdr agent name resolution (live `herdr agent list` match + `HERDR_AGENT_MAP` override)
-- [ ] Comment display for tickets (currently just titles)
-- [ ] Rate limiting
-- [ ] Authentication middleware
-- [ ] Export to CSV/JSON
-- [ ] Status history charts
-- [ ] Per-agent settings UI
-- [ ] Error recovery and auto-retry
+- بررسی نحوی اسکریپت PowerShell و بررسی فایل قفل برای ویندوز، جای اجرای بومی `setup-dashboard.cmd` در ویندوز را نمی‌گیرد. گردش کار کامل با Herdr و ایجنت‌های واقعی نیز در این محیط آزمایش نشد.
+- داشبورد احراز هویت کاربر ندارد. بررسی npm پس از اصلاح دو وابستگی، **صفر مورد بحرانی، یک مورد سطح بالا و چهار مورد متوسط** گزارش کرد (شامل بسته‌های وابسته). جزئیات و محدودیت انتشار در [SECURITY.md](SECURITY.md) آمده است؛ این راه‌اندازی را مستقیم روی اینترنت منتشر نکنید.
+- پرامپت دستی هنوز پیاده‌سازی نشده است. خروجی ترمینال به Herdr و نگاشت درست نام/پنجره نیاز دارد. در حالت `pane`، ثابت ماندن صفحه فقط یک تخمین برای پایان کار است.
 
-### Not Started ❌
-- [ ] WebSocket for real-time updates (instead of polling)
-- [ ] Multi-language support (currently Persian-only)
-- [ ] Dark/light theme toggle
-- [ ] Mobile-responsive optimization
-- [ ] Testing suite (unit + integration)
-- [ ] Docker container
-- [ ] CI/CD pipeline
-
-## Dependencies
-
-### Runtime
-- Python 3.10+
-- Flask
-- urllib3
-
-### External Services
-- Paperclip (API: http://localhost:3100)
-- Herdr (CLI in PATH)
-
-### Install Dependencies
-```bash
-pip install flask urllib3
-```
-
-## Quick Start
-
-1. **Run Paperclip** (in one terminal):
-   ```bash
-   npx paperclipai run
-   ```
-
-2. **Run Setup Script** (in another terminal):
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\setup-dashboard.ps1
-   ```
-
-3. **Open Dashboard**:
-   ```
-   http://localhost:8000
-   ```
-
-## Architecture Summary
-
-### Control Flow
-```
-User opens Dashboard
-   ↓
-Frontend polls Paperclip API every 5s
-   ↓
-Backend reads agent list and triggers heartbeats
-   ↓
-Paperclip triggers agents via bridge.sh/hermes_local
-   ↓
-Frontend displays live status and output
-```
-
-### Key Components
-1. **Frontend (index.html)**: SPA with agent cards, ticket list, manual prompts
-2. **Backend (app.py)**: Flask server exposing REST APIs
-3. **Setup Script**: Automated configuration and launch
-4. **Tests**: Basic API validation
-
-## Known Issues
-
-1. **Output Display**: Only works if Herdr is running with visible terminal output
-2. **Manual Prompts**: Placeholder implementation, doesn't actually send prompts
-3. **Agent Name Mapping**: Resolved from live `herdr agent list`; agents whose Herdr name differs need a `HERDR_AGENT_MAP` entry in `dashboard/.env`
-4. **Error Handling**: Some failures don't show user-friendly messages
-5. **No Authentication**: Any client can access APIs (no auth middleware)
-
-## Next Steps
-
-### Immediate (to make it work)
-1. Verify Paperclip is running and accessible
-2. Run `python dashboard/test_apis.py` to validate APIs
-3. Adjust `HERDR_HOST` and `HERDR_PORT` if needed
-4. Implement Herdr agent name resolution
-
-### Short-term (to improve usability)
-1. Add comment display for tickets
-2. Improve error messages
-3. Add per-agent settings (custom output line count, heartbeat interval)
-4. Implement manual prompt routing
-
-### Long-term (to scale)
-1. Add WebSocket support for real-time updates
-2. Implement authentication and authorization
-3. Add rate limiting and caching
-4. Create Docker container
-5. Write comprehensive test suite
-
-## Environment Variables
-
-Required:
-- `PAPERCLIP_API_URL` - Paperclip API base URL (default: http://localhost:3100)
-- `PAPERCLIP_COMPANY_ID` - Your company ID (from Paperclip)
-- `HERDR_HOST` - Herdr host (default: localhost)
-- `HERDR_PORT` - Herdr port (default: 50800)
-- `DASHBOARD_HOST` - Dashboard host (default: 0.0.0.0)
-- `DASHBOARD_PORT` - Dashboard port (default: 8000)
-
-Optional:
-- `PAPERCLIP_API_KEY` - API key if required by Paperclip
-- `AGENT_PING_TIMEOUT` - Heartbeat timeout in ms (default: 2000)
-
-## Contact & Support
-
-- Documentation: See `dashboard/README.md` and `dashboard/CONSTRUCTION.md`
-- GitHub Issues: Report bugs or feature requests
+</div>

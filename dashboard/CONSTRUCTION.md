@@ -28,7 +28,7 @@ This dashboard builds a unified control plane over Paperclip+Herdr, enabling:
   - `GET /health` - Check system health
 
 **Configuration**:
-- Uses environment variables for Paperclip URL, company ID, Herdr host/port
+- Reads Paperclip URL, optional company ID, optional API key and Herdr mapping from `dashboard/.env` or the environment
 - Falls back gracefully if Paperclip/Herdr are offline
 
 ### 2. Frontend (`dashboard/index.html`)
@@ -88,13 +88,13 @@ This dashboard builds a unified control plane over Paperclip+Herdr, enabling:
 
 **Checks**:
 - Python version
-- Flask installation
-- Paperclip availability and company list
+- Node/npm compatibility if a local Paperclip must be started
+- Paperclip readiness (`GET /api/health`)
 - Herdr installation
 
 **Actions**:
-- Prompts for Company ID if not provided
-- Creates `dashboard/.env` file with configuration
+- Bootstraps the pinned CLI for an unavailable default local instance; does not launch a local process for a remote URL
+- Creates `dashboard/.env` when missing and updates only explicitly passed keys
 - Opens browser to dashboard URL
 - Starts the Python backend
 
@@ -185,17 +185,17 @@ Frontend displays output in agent card
 **Dashboard won't start**:
 - Check if port 8000 is already in use: `netstat -ano | findstr :8000`
 - Check Python: `python --version`
-- Check Flask: `pip show flask`
+- No Flask or pip packages are required.
 
 **Paperclip not detected**:
-- Verify Paperclip is running: `curl http://localhost:3100/api/companies`
+- Verify readiness: `curl http://localhost:3100/api/health`; test access: `python dashboard/test_connectivity.py`
 - Check environment variable `PAPERCLIP_API_URL`
 - Verify company ID matches your Paperclip instance
 
 **Herdr not reachable**:
 - Check Herdr installation: `herdr --version`
 - Verify Herdr user matches Paperclip user
-- Check `HERDR_HOST` and `HERDR_PORT` in `.env`
+- Check that `herdr agent list` works as the dashboard user
 
 **Agent output empty**:
 - Check Herdr agent name mapping (`derive_herdr_agent_name`)

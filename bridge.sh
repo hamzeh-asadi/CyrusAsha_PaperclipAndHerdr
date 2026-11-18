@@ -17,12 +17,18 @@ WAIT_MS="${WAIT_MS:-1800000}"
 QUIET_SEC="${QUIET_SEC:-45}"
 DONE_STATUS="${DONE_STATUS:-in_review}"
 
-api() { # api METHOD PATH [JSON]
-  local method="$1" path="$2" body="${3:-}"
+case "$MODE" in agent|pane) ;; *) echo "invalid HERDR_MODE: expected agent or pane" >&2; exit 1 ;; esac
+
+api() { # api METHOD PATH [JSON [curl options...]]
+  local method="$1" path="$2"; shift 2
+  if (( $# )); then
+    local body="$1"; shift
+    set -- --data-binary "$body" "$@"
+  fi
   curl -sS --fail-with-body -X "$method" "$PAPERCLIP_API_URL$path" \
     -H "Authorization: Bearer $PAPERCLIP_API_KEY" \
     -H "X-Paperclip-Run-Id: ${PAPERCLIP_RUN_ID:-}" \
-    -H "Content-Type: application/json" ${body:+-d "$body"}
+    -H "Content-Type: application/json" "$@"
 }
 
 # 1) inbox: first in_progress, otherwise first todo
@@ -37,10 +43,13 @@ echo "task $id: $title"
 
 # 2) checkout (409 = someone else owns it -> stop, never retry).
 #    "in_progress" is included so a task left behind by a crashed run is re-claimed by this run.
-if ! api POST "/api/issues/$id/checkout" \
-     "$(jq -n --arg a "$PAPERCLIP_AGENT_ID" '{agentId:$a,expectedStatuses:["todo","backlog","blocked","in_review","in_progress"]}')" >/dev/null; then
-  echo "checkout refused, skipping"; exit 0
-fi
+checkout=$(jq -n --arg a "$PAPERCLIP_AGENT_ID" '{agentId:$a,expectedStatuses:["todo","backlog","blocked","in_review","in_progress"]}')
+status=$(api POST "/api/issues/$id/checkout" "$checkout" -o /dev/null -w '%{http_code}') || {
+  rc=$?
+  if [[ "$rc" == 22 && "$status" == 409 ]]; then echo "checkout refused, skipping"; exit 0; fi
+  echo "checkout failed (HTTP $status, curl $rc); task was not dispatched" >&2; exit "$rc"
+}
+if [[ "$status" != 2?? ]]; then echo "unexpected checkout response: HTTP $status" >&2; exit 1; fi
 
 # 3) hand the task to the agent living in herdr (single line: TUIs submit on newline)
 code=$(printf '%s' "$id" | tr -cd 'a-zA-Z0-9' | cut -c1-8)
@@ -48,9 +57,12 @@ MARKER="PAPERCLIP_DONE_${code}"
 prompt=$(printf 'Task: %s. Details: %s. When completely finished, write a short summary of what you changed, then a final line made of these two parts joined with no space between them: PAPERCLIP_DONE_ and %s. Do not write that joined word before you are finished.' "$title" "$desc" "$code" | tr '\r\n' '  ')
 
 if [ "$MODE" = "agent" ]; then
-  herdr agent prompt "$HERDR_TARGET" "$prompt" --wait --timeout "$WAIT_MS" || echo "herdr wait ended abnormally (blocked/timeout)"
-  state=$(herdr agent get "$HERDR_TARGET" 2>/dev/null | jq -r '.result.agent.agent_status // "unknown"' || echo unknown)
-  out=$(herdr agent read "$HERDR_TARGET" --source recent-unwrapped --lines 120 || true)
+  if herdr agent prompt "$HERDR_TARGET" "$prompt" --wait --timeout "$WAIT_MS"; then
+    state=$(herdr agent get "$HERDR_TARGET" | jq -r '.result.agent.agent_status // "unknown"') || state="unknown"
+  else
+    state="prompt_failed"
+  fi
+  out=$(herdr agent read "$HERDR_TARGET" --source recent-unwrapped --lines 120) || state="read_failed"
 else
   herdr pane send-text "$HERDR_TARGET" "$prompt"
   sleep 1
@@ -60,14 +72,14 @@ else
   deadline=$(( $(date +%s) + WAIT_MS / 1000 )); last=""; same_since=$(date +%s); state="timeout"
   sleep 10
   while [ "$(date +%s)" -lt "$deadline" ]; do
-    recent=$(herdr pane read "$HERDR_TARGET" --source recent-unwrapped --lines 200 || true)
+    recent=$(herdr pane read "$HERDR_TARGET" --source recent-unwrapped --lines 200) || { state="read_failed"; break; }
     if grep -qF "$MARKER" <<<"$recent"; then state="done"; sleep 3; break; fi
-    cur=$(herdr pane read "$HERDR_TARGET" --source visible || true)
+    cur=$(herdr pane read "$HERDR_TARGET" --source visible) || { state="read_failed"; break; }
     if [ "$cur" != "$last" ]; then last="$cur"; same_since=$(date +%s); fi
-    if [ $(( $(date +%s) - same_since )) -ge "$QUIET_SEC" ]; then state="quiet"; break; fi
+    if [[ -n "$cur" ]] && [ $(( $(date +%s) - same_since )) -ge "$QUIET_SEC" ]; then state="quiet"; break; fi
     sleep 5
   done
-  out=$(herdr pane read "$HERDR_TARGET" --source recent-unwrapped --lines 120 || true)
+  out=$(herdr pane read "$HERDR_TARGET" --source recent-unwrapped --lines 120) || state="read_failed"
 fi
 
 # 4) report back
