@@ -1,0 +1,9 @@
+# Normalize line endings on checkout so a fresh clone behaves like this working copy.
+* text=auto
+
+# bridge.sh runs under bash: CRLF makes bash fail with "'bash\r': No such file or directory".
+*.sh text eol=lf
+
+# Windows launchers keep CRLF.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf

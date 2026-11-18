@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paperclip+Herdr Unified Dashboard</title>
+  <style>
+    :root {
+      --foreground: #0f0f0f;
+      --muted-foreground: #737373;
+      --accent: #3b82f6;
+      --border: #e4e4e7;
+      --card: #fafafa;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--card);
+      color: var(--foreground);
+      line-height: 1.5;
+      padding: 1rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      font-size: 0.875rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      background: var(--border);
+      color: var(--muted-foreground);
+    }
+
+    .status-badge.online {
+      background: var(--success);
+      color: white;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      background: white;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .agent-name {
+      font-weight: 600;
+    }
+
+    .agent-type {
+      font-size: 0.75rem;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.875rem;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: white;
+      color: var(--foreground);
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--card);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .prompt-box {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    textarea {
+      width: 100%;
+      height: 60px;
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-family: inherit;
+      font-size: 0.875rem;
+      resize: vertical;
+    }
+
+    .output-section {
+      flex: 1;
+      min-height: 120px;
+      background: var(--card);
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      overflow: auto;
+      font-family: "Courier New", monospace;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+
+    .output-section.empty {
+      color: var(--muted-foreground);
+      text-align: center;
+    }
+
+    .output-section.error {
+      color: var(--danger);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+
+    .tab {
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: var(--muted-foreground);
+      font-size: 0.875rem;
+    }
+
+    .tab.active {
+      border-bottom-color: var(--accent);
+      color: var(--foreground);
+      font-weight: 600;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .ticket-item {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ticket-item:last-child {
+      border-bottom: none;
+    }
+
+    .ticket-title {
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+
+    .ticket-meta {
+      font-size: 0.75rem;
+      color: var(--muted-foreground);
+      display: flex;
+      gap: 1rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge.todo { background: #e0f2fe; color: #0369a1; }
+    .badge.in_progress { background: #fef9c3; color: #a16207; }
+    .badge.in_review { background: #dcfce7; color: #15803d; }
+    .badge.blocked { background: #fee2e2; color: #b91c1c; }
+
+    .refresh-controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .loading {
+      color: var(--muted-foreground);
+      font-size: 0.875rem;
+    }
+
+    .error {
+      color: var(--danger);
+      font-size: 0.875rem;
+    }
+
+    .poll-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted-foreground);
+      animation: pulse 1.5s infinite;
+    }
+
+    .poll-indicator.active {
+      background: var(--accent);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .manual-prompt-section {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Paperclip+Herdr Unified Dashboard</h1>
+      <div class="refresh-controls">
+        <span id="pollIndicator" class="poll-indicator"></span>
+        <button class="btn btn-primary" onclick="refreshAll()">بارگذاری مجدد</button>
+        <span id="statusBadge" class="status-badge">در حال اتصال...</span>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <div class="tab active" onclick="switchTab('agents')">ایجنت‌ها</div>
+      <div class="tab" onclick="switchTab('tickets')">تیکت‌ها</div>
+    </nav>
+
+    <!-- Agents Tab -->
+    <div id="agentsTab" class="tab-content active">
+      <div class="grid" id="agentsGrid"></div>
+    </div>
+
+    <!-- Tickets Tab -->
+    <div id="ticketsTab" class="tab-content">
+      <div id="ticketsList" class="grid" style="grid-template-columns: 1fr;"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:8000/api";
+    const POLL_INTERVAL = 5 * 1000; // 5 seconds
+    let pollTimer = null;
+    let isPolling = false;
+
+    // State
+    let agents = [];
+    let tickets = [];
+
+    // Load from localStorage on init
+    document.addEventListener("DOMContentLoaded", () => {
+      loadState();
+      refreshAll();
+      startPolling();
+    });
+
+    async function loadState() {
+      const storedAgents = localStorage.getItem("dashboard_agents");
+      const storedTickets = localStorage.getItem("dashboard_tickets");
+      if (storedAgents) agents = JSON.parse(storedAgents);
+      if (storedTickets) tickets = JSON.parse(storedTickets);
+    }
+
+    function saveState() {
+      localStorage.setItem("dashboard_agents", JSON.stringify(agents));
+      localStorage.setItem("dashboard_tickets", JSON.stringify(tickets));
+    }
+
+    async function refreshAll() {
+      await Promise.all([fetchAgents(), fetchTickets()]);
+      saveState();
+      updateUI();
+    }
+
+    async function fetchAgents() {
+      try {
+        const res = await fetch(`${API_BASE}/agents`);
+        const data = await res.json();
+        if (data.agents) {
+          agents = data.agents;
+          // Update online status for each agent
+          agents = agents.map(agent => ({
+            ...agent,
+            online: data.paperclip_online,
+            lastHeartbeat: Date.now()
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to fetch agents:", e);
+      }
+    }
+
+    async function fetchTickets() {
+      try {
+        const res = await fetch(`${API_BASE}/tickets`);
+        const data = await res.json();
+        if (data.tickets) {
+          tickets = data.tickets;
+        }
+      } catch (e) {
+        console.error("Failed to fetch tickets:", e);
+      }
+    }
+
+    async function triggerHeartbeat(agentId) {
+      const btn = document.querySelector(`button[data-agent="${agentId}"]`);
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = "در حال ارسال...";
+
+      try {
+        const res = await fetch(`${API_BASE}/agents/${agentId}/heartbeat/invoke`, {
+          method: "POST"
+        });
+        const data = await res.json();
+        if (data.status === "triggered") {
+          // Trigger output refresh after a short delay
+          setTimeout(refreshAgentOutput, 1500, agentId);
+        }
+      } catch (e) {
+        console.error("Failed to trigger heartbeat:", e);
+      }
+
+      btn.disabled = false;
+      btn.textContent = "بیدار کردن";
+    }
+
+    async function refreshAgentOutput(agentId) {
+      try {
+        const res = await fetch(`${API_BASE}/agents/${agentId}/output`);
+        const data = await res.json();
+        const outputContainer = document.querySelector(`#output-${agentId}`);
+        if (outputContainer) {
+          if (data.success) {
+            outputContainer.textContent = data.output || "خروجی خالی";
+            outputContainer.classList.remove("empty", "error");
+          } else {
+            outputContainer.textContent = data.error || "خطا در خواندن خروجی";
+            outputContainer.classList.add("error");
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch agent output:", e);
+      }
+    }
+
+    function updateUI() {
+      updateAgentsUI();
+      updateTicketsUI();
+      updateGlobalStatus();
+    }
+
+    function updateAgentsUI() {
+      const grid = document.getElementById("agentsGrid");
+      grid.innerHTML = "";
+
+      if (agents.length === 0) {
+        grid.innerHTML = `<div class="card"><div class="status-row"><span>هیچ ایجنتی یافت نشد</span></div></div>`;
+        return;
+      }
+
+      agents.forEach(agent => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="card-header">
+            <div>
+              <div class="agent-name">${escapeHtml(agent.name)}</div>
+              <div class="agent-type">${escapeHtml(agent.adapterType || "unknown")}</div>
+            </div>
+            <div class="status-badge ${agent.online ? "online" : ""}">
+              ${agent.online ? "آنلاین" : "آفلاین"}
+            </div>
+          </div>
+          <div class="status-row">
+            <span>نقش: ${escapeHtml(agent.role || "unknown")}</span>
+          </div>
+          <div class="status-row">
+            <span>آخرین بیدار: ${formatTime(agent.lastHeartbeat || Date.now())}</span>
+          </div>
+          <div class="status-row">
+            <button class="btn btn-primary" data-agent="${escapeHtml(agent.id)}" onclick="triggerHeartbeat('${escapeJs(agent.id)}')">
+              بیدار کردن
+            </button>
+          </div>
+          <div class="manual-prompt-section">
+            <div style="font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">پرامپت دستی</div>
+            <div class="prompt-box">
+              <textarea id="prompt-${escapeJs(agent.id)}" placeholder="هر نوع دستوری برای این ایجنت..."></textarea>
+              <button class="btn" onclick="sendManualPrompt('${escapeJs(agent.id)}')">ارسال پرامپت</button>
+            </div>
+          </div>
+          <div class="output-section empty" id="output-${escapeJs(agent.id)}">
+            خروجی اخیر...
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function sendManualPrompt(agentId) {
+      const textarea = document.getElementById(`prompt-${escapeJs(agentId)}`);
+      const prompt = textarea.value.trim();
+      if (!prompt) return alert("لطفاً یک پرامپت وارد کنید");
+
+      try {
+        const res = await fetch(`${API_BASE}/agents/${agentId}/prompt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt })
+        });
+        const data = await res.json();
+        alert(data.message || "پرامپت ارسال شد");
+        textarea.value = "";
+        setTimeout(refreshAgentOutput, 2000, agentId);
+      } catch (e) {
+        alert("خطا در ارسال پرامپت");
+      }
+    }
+
+    function updateTicketsUI() {
+      const list = document.getElementById("ticketsList");
+      list.innerHTML = "";
+
+      if (tickets.length === 0) {
+        list.innerHTML = `<div class="ticket-item">هیچ تیکتی یافت نشد</div>`;
+        return;
+      }
+
+      tickets.forEach(ticket => {
+        const item = document.createElement("div");
+        item.className = "ticket-item";
+        const statusClass = ticket.status || "unknown";
+
+        item.innerHTML = `
+          <div class="ticket-title">${escapeHtml(ticket.title || "بدون عنوان")}</div>
+          <div class="ticket-meta">
+            <span class="badge ${statusClass}">${escapeHtml(ticket.status || "unknown")}</span>
+            <span>شناسه: ${escapeHtml(ticket.id || "N/A")}</span>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function updateGlobalStatus() {
+      const badge = document.getElementById("statusBadge");
+      const isOnline = agents.some(a => a.online);
+      badge.className = `status-badge ${isOnline ? "online" : ""}`;
+      badge.textContent = isOnline ? "سیستم آنلاین" : "سیستم آفلاین";
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+
+      const tab = document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`);
+      const content = document.getElementById(`${tabName}Tab`);
+
+      if (tab) tab.classList.add("active");
+      if (content) content.classList.add("active");
+    }
+
+    function startPolling() {
+      isPolling = true;
+      pollTimer = setInterval(refreshAll, POLL_INTERVAL);
+    }
+
+    function stopPolling() {
+      isPolling = false;
+      if (pollTimer) clearInterval(pollTimer);
+    }
+
+    // Utility functions
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function escapeJs(str) {
+      return str.replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      return date.toLocaleString("fa-IR");
+    }
+  </script>
+</body>
+</html>
