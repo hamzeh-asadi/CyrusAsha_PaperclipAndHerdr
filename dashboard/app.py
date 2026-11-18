@@ -11,7 +11,7 @@ import json
 import time
 import socket
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, urlencode
 from typing import Dict, Any, Optional
 import subprocess
 import urllib.request
@@ -369,9 +369,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def list_tickets_from_paperclip(self, query: Dict[str, list]) -> Dict[str, Any]:
         """Fetch tickets from Paperclip API."""
         import urllib.request
-        assignee = query.get("assigneeAgentId", [None])[0] if query.get("assigneeAgentId") else None
+        assignee = query.get("assigneeAgentId", [""])[0] if query.get("assigneeAgentId") else ""
         status = query.get("status", ["todo,in_progress"])[0] if query.get("status") else "todo,in_progress"
-        url = f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}/issues?assigneeAgentId={assignee}&status={status}"
+        params = {"status": status}
+        if assignee:
+            params["assigneeAgentId"] = assignee
+        url = f"{PAPERCLIP_URL}/api/companies/{COMPANY_ID}/issues?{urlencode(params)}"
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=5) as res:
             data = json.loads(res.read().decode("utf-8"))

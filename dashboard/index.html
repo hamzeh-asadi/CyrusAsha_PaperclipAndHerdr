@@ -303,7 +303,8 @@
   </div>
 
   <script>
-    const API_BASE = "http://localhost:8000/api";
+    // Same origin as the page, so a custom DASHBOARD_PORT keeps working
+    const API_BASE = `${window.location.origin}/api`;
     const POLL_INTERVAL = 5 * 1000; // 5 seconds
     let pollTimer = null;
     let isPolling = false;
@@ -311,6 +312,9 @@
     // State
     let agents = [];
     let tickets = [];
+    // Last fetched output and typed prompt per agent, so the 5s re-render does not wipe them
+    const agentOutputs = {};
+    const promptDrafts = {};
 
     // Load from localStorage on init
     document.addEventListener("DOMContentLoaded", () => {
@@ -394,15 +398,15 @@
       try {
         const res = await fetch(`${API_BASE}/agents/${agentId}/output`);
         const data = await res.json();
+        agentOutputs[agentId] = {
+          text: data.success ? (data.output || "خروجی خالی") : (data.error || "خطا در خواندن خروجی"),
+          error: !data.success
+        };
         const outputContainer = document.querySelector(`#output-${agentId}`);
         if (outputContainer) {
-          if (data.success) {
-            outputContainer.textContent = data.output || "خروجی خالی";
-            outputContainer.classList.remove("empty", "error");
-          } else {
-            outputContainer.textContent = data.error || "خطا در خواندن خروجی";
-            outputContainer.classList.add("error");
-          }
+          outputContainer.textContent = agentOutputs[agentId].text;
+          outputContainer.classList.remove("empty", "error");
+          if (agentOutputs[agentId].error) outputContainer.classList.add("error");
         }
       } catch (e) {
         console.error("Failed to fetch agent output:", e);
@@ -417,6 +421,16 @@
 
     function updateAgentsUI() {
       const grid = document.getElementById("agentsGrid");
+
+      // Only rebuild the cards when the data actually changed, otherwise the 5s poll
+      // would drop the textarea focus and the typed manual prompt.
+      const signature = agents
+        .map(a => `${a.id}|${a.name}|${a.adapterType || ""}|${a.role || ""}|${a.online}`)
+        .join(";");
+      if (grid.dataset.signature === signature && grid.childElementCount === agents.length) {
+        return;
+      }
+      grid.dataset.signature = signature;
       grid.innerHTML = "";
 
       if (agents.length === 0) {
@@ -459,6 +473,20 @@
             خروجی اخیر...
           </div>
         `;
+        const promptBox = card.querySelector(`#prompt-${CSS.escape(agent.id)}`);
+        if (promptBox) {
+          promptBox.value = promptDrafts[agent.id] || "";
+          promptBox.addEventListener("input", () => { promptDrafts[agent.id] = promptBox.value; });
+        }
+
+        const cachedOutput = agentOutputs[agent.id];
+        if (cachedOutput) {
+          const outputEl = card.querySelector(".output-section");
+          outputEl.textContent = cachedOutput.text;
+          outputEl.classList.remove("empty", "error");
+          if (cachedOutput.error) outputEl.classList.add("error");
+        }
+
         grid.appendChild(card);
       });
     }
