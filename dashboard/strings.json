@@ -875,6 +875,10 @@
     "en": "Herdr target {target} is not ready ({state}): it is still on an onboarding or sign-in screen. Finish that screen in its Herdr pane, then release the task again. The ticket was not changed.",
     "fa": "هدف Herdr با نام {target} آماده نیست ({state}) و هنوز روی صفحهٔ onboarding یا ورود است. همان صفحه را در پنجرهٔ Herdr کامل کنید و بعد کار را دوباره ارسال کنید؛ تیکت تغییر نکرد."
   },
+  "err.herdrBlocked": {
+    "en": "Herdr target {target} is waiting for an approval in its pane. Answer that permission, question or trust dialog in Herdr, then release the task again. No second prompt was sent and the task was left open, not marked reviewed or done.",
+    "fa": "هدف Herdr با نام {target} در پنجرهٔ خود منتظر اجازه است. همان دیالوگ اجازه، سؤال یا اعتماد را در Herdr پاسخ دهید و بعد کار را دوباره ارسال کنید. پرامپت دومی فرستاده نشد و تیکت باز ماند؛ نه بازبینی‌شده و نه انجام‌شده ثبت نشد."
+  },
   "err.targetUnavailable": {
     "en": "The linked Herdr target {target} cannot be checked right now. Refresh the Herdr list and release again. The ticket was not changed.",
     "fa": "هدف متصل Herdr ({target}) الان قابل بررسی نیست. فهرست Herdr را تازه کنید و دوباره ارسال کنید؛ تیکت تغییر نکرد."

@@ -42,6 +42,7 @@ def herdr_binary():
 
 
 def safe_session(name):
+    """True for a Herdr session name that is safe as a single CLI argument."""
     return (
         isinstance(name, str)
         and name not in (".", "..")
@@ -50,6 +51,7 @@ def safe_session(name):
 
 
 def _cli_failure(result):
+    """Map a failed Herdr call to fixed copy; never echo stderr or prompt text."""
     # Never echo stderr, the prompt argv, filesystem paths or terminal output.
     known = {
         "server_not_running": "err.herdrStopped",
@@ -74,6 +76,7 @@ def _cli_failure(result):
 
 
 def cli_text(*args, timeout=8, session=None):
+    """Run the Herdr CLI and return stdout, raising desk messages for known failures."""
     if session is not None and not safe_session(session):
         raise ValueError(Message("err.sessionName"))
     binary = herdr_binary()
@@ -101,6 +104,7 @@ def cli_text(*args, timeout=8, session=None):
 
 
 def herdr(*args, timeout=8, session=None):
+    """Run one Herdr subcommand and return its ``result`` object."""
     response = cli_text(*args, timeout=timeout, session=session)
     try:
         payload = json.loads(response)["result"]
@@ -112,6 +116,7 @@ def herdr(*args, timeout=8, session=None):
 
 
 def live_sessions():
+    """List local Herdr sessions with only name, running and unreachable flags."""
     # session list is local metadata (no server required). Unlike agent list,
     # it returns a top-level sessions array, not an API {result: ...} envelope.
     try:
@@ -130,10 +135,12 @@ def live_sessions():
 
 
 def safe_target(value):
+    """True for a Herdr target or pane id that is safe as a single CLI argument."""
     return isinstance(value, str) and re.fullmatch(r"[\w][\w.:-]{0,119}", value) is not None
 
 
 def live_targets(session=None):
+    """Return the detected agents of one Herdr session as CLI targets."""
     records = herdr("agent", "list", session=session).get("agents")
     if not isinstance(records, list):
         raise RuntimeError(Message("err.herdrList"))
@@ -172,6 +179,7 @@ def prompt_ready(info):
 
 
 def bound_agent(target, terminal, kind, session=None):
+    """Re-read the bound terminal and prove it still matches the saved binding."""
     if not safe_target(target):
         raise ValueError(Message("err.target"))
     info = herdr("agent", "get", target, session=session).get("agent")
@@ -191,6 +199,7 @@ def bound_agent(target, terminal, kind, session=None):
 
 
 def select_work(board, company, agent, run_id):
+    """Pick the one ready issue for this run, or None when nothing is ready."""
     # The process adapter does not always export TASK_ID. For an issue-scoped
     # wake, read the *actual* run, not the first item on the company's board.
     run = board("/api/heartbeat-runs/" + quote(run_id, safe=""))
@@ -234,6 +243,7 @@ def select_work(board, company, agent, run_id):
 
 
 def run(target, terminal, kind, session=None):
+    """Deliver this run's issue to the bound agent, then request human review."""
     if not safe_target(target):
         raise ValueError(Message("err.target"))
     company, agent, run_id, url, key = (
@@ -241,6 +251,7 @@ def run(target, terminal, kind, session=None):
     )
 
     def board(path, method="GET", data=None):
+        """Call Paperclip with this run's own credentials, never the dashboard's."""
         return request_json(url, path, method, key=key, run_id=run_id, data=data, timeout=15)
 
     issue = select_work(board, company, agent, run_id)
@@ -282,12 +293,14 @@ def run(target, terminal, kind, session=None):
         raise RuntimeError("Delivery outcome unknown. Inspect the terminal before retrying.") from exc
     if (
         not isinstance(end, dict)
-        or end.get("agent_status") not in ("idle", "done")
         or not info.get("terminal_id")
         or end.get("terminal_id") != info["terminal_id"]
         or end.get("agent") != kind
     ):
         raise RuntimeError("Agent did not finish on the same terminal. Inspect Herdr; task left open.")
+    if end.get("agent_status") not in ("idle", "done"):
+        # Herdr reports a pane with a permission, question or trust dialog as blocked.
+        raise RuntimeError(Message("err.herdrBlocked", target=target))
     try:
         request_human_review(board, path, run_id)
     except PaperclipError as exc:

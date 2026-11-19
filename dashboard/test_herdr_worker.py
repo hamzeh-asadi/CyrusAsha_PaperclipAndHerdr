@@ -146,6 +146,14 @@ class WorkerTests(unittest.TestCase):
             self.assertEqual(cli.call_count, 2)
         self.assertFalse(any(path.endswith("/interactions") for _, path, _ in self.calls))
 
+    def test_pending_approval_dialog_is_named_and_left_open(self):
+        self.end["agent_status"] = "blocked"  # Herdr reports a permission dialog this way
+        with self.assertRaisesRegex(RuntimeError, "waiting for an approval"):
+            self.run_worker()
+        self.assertEqual(sum(cmd[:2] == ("agent", "prompt") for cmd in self.cli), 1)
+        self.assertFalse(any(path.endswith("/interactions") for _, path, _ in self.calls))
+        self.assertFalse(any(method == "PATCH" for method, _, _ in self.calls))
+
     def test_unready_changed_or_blocked_target_never_advanced(self):
         self.end["agent_status"] = "blocked"
         with self.assertRaises(RuntimeError):
