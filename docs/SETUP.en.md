@@ -20,6 +20,45 @@ From the root (the directory containing `package.json`), use Node **24.15.0 or n
 
 Paperclip normally listens at `http://localhost:3100`; check its printed URL and `/api/health` (`status: "ok"`). The desk normally listens at `http://localhost:8000`. Do not start a second server for the same instance. For a custom data directory, use the same OS user and directory every time, e.g. `npm start -- --data-dir "D:/AI-Workspace/paperclip-data"`. Do not delete existing data to fix a startup failure. Optional Copilot assets are **not** needed for this desk; `npm run setup:copilot` is an opt-in step for that adapter on supported platforms.
 
+<a id="postgres-reuse"></a>
+
+### “Refusing to reuse PostgreSQL: its data directory belongs to another instance” (Windows)
+
+This is Paperclip stopping **before the desk starts**. After finding a live PID in the embedded cluster's `postmaster.pid`, Paperclip asks PostgreSQL which directory it serves. In the pinned version **both** a failed SQL lookup and a nonmatching path produce this message. A passing directory check in `doctor` does not prove the connection works. The launcher's exit code is a consequence, not the cause.
+
+**If your original board is already open**, check the API URL printed by that server (not the database port):
+
+```powershell
+$board = 'http://127.0.0.1:3100' # replace with the original board's actual base URL
+(Invoke-RestMethod "$board/api/health" -TimeoutSec 5).status
+```
+
+If it returns `ok` **and you recognize your existing company/tickets in that board**, connect the desk without bootstrapping even if the connection drops:
+
+```powershell
+.\setup-dashboard.cmd -ExistingOnly -PaperclipUrl "$board"
+```
+
+**Otherwise, diagnose the existing instance first.** In the checkout, under the same Windows account and environment used to launch Paperclip:
+
+```powershell
+$cfg = Read-Host 'Paste the path after Config: in the failed start (without quotes)'
+.\setup-dashboard.cmd -DiagnosePostgres -ConfigPath "$cfg"
+```
+
+Without `-ConfigPath` the check uses `PAPERCLIP_CONFIG`, the nearest `.paperclip/config.json`, or the current Paperclip home/instance. Compare the path printed locally. `-ConfigPath` is **only** for this diagnostic; Paperclip's own `--data-dir` selects its **home**, not a PostgreSQL `db` folder. The check inspects the declared embedded config, not `.env` overrides. It installs nothing, starts/stops no service, runs no repair and changes no config, data or lock file. Only after verifying the PID, Windows listener owner and lock directory does it run one read-only SQL query on `127.0.0.1` using the **port in the lock** (which may differ from the configured DB port).
+
+| `DB-CHECK` result | Meaning and next step |
+|---|---|
+| `server-dir-matches` | The server returned the expected path **now**. Check the original Paperclip console/API and company; this is not permission to start a second server. |
+| `same-dir-different-spelling` / `dir-identity-unverified` | The paths differ after Node normalization. In the first case filesystem IDs match; in the second the identity is unknown. Check the original path spelling, drive or junction. Do not bypass the upstream guard or rename the directory. |
+| `server-dir-differs` / `pid-file-dir-differs` / `listener-owner-differs` / `pid-not-postgres` | Conflicting directory, lock or process evidence. The PID might even have been recycled. Leave it alone. Identify the original instance, owner and launch command before any restart. |
+| `sql-auth-failed` | Login or reading the setting was denied. Inspect that instance's local PostgreSQL log/access settings; do not reset a role or change authentication to get past the check. |
+| `sql-not-ready` / `sql-timeout` / `sql-unavailable` | The lookup did not complete. If the original service is starting, let it finish and repeat **the check**, not setup. A different directory has not been established. |
+| Missing/unreadable config or lock, missing PID/listener, `*-unverified` or `probe-unavailable` | No conclusion about ownership. Confirm the `Config:` path, same account and original launch environment. For the SQL probe, `node.exe` and the project's already-installed `postgres` dependency must be available. |
+
+Do not delete `postmaster.pid`, kill a PID, create a fresh home, or point this installation at a different database as a workaround. If a restart is necessary, stop **only your identified original instance** normally through its own console/service manager. Before any database repair, verify the instance and its backup. For support share **only** `DB-CHECK: …`, whether `/api/health` returned `ok`, and whether the printed config matched the original. Do not post `.env`, a connection string, full config/logs or private paths.
+
 ## 2. Pick the company, then register the team
 
 For a linked member, install **[Herdr](https://github.com/herdrdev/herdr)** using its platform instructions (not `npm install herdr`). Start `herdr` from the directory the agent should edit. For a manual member you can skip this installation entirely. Use the official [Antigravity](https://antigravity.google) or [Freebuff](https://freebuff.com) installer as appropriate, and open the agent once to complete sign-in.

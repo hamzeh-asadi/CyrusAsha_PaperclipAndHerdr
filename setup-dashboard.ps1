@@ -7,12 +7,24 @@ param(
     [ValidateRange(1, 3600)][int]$StartupTimeout = 180,
     [switch]$NoBrowser,
     [string]$PythonExe,
-    [ValidatePattern('^3\.\d+$')][string]$PythonVersion
+    [ValidatePattern('^3\.\d+$')][string]$PythonVersion,
+    [switch]$ExistingOnly,
+    [switch]$DiagnosePostgres,
+    [string]$ConfigPath
 )
 $ErrorActionPreference = 'Stop'
 
 Push-Location -LiteralPath $PSScriptRoot
 try {
+    if ($DiagnosePostgres) {
+        . (Join-Path $PSScriptRoot 'scripts/windows-postgres-check.ps1')
+        Write-Host 'Read-only check. No setup, start/stop, repair or changes to data or lock files.'
+        $result = Get-PaperclipDbCheck -ConfigPath $ConfigPath
+        Write-Host "DB-CHECK: $result"
+        Write-Host 'See docs/SETUP.en.md or docs/SETUP.fa.md (PostgreSQL). A match is not permission to start a second server.'
+        exit 0 # a diagnostic report, not a readiness decision
+    }
+    if ($PSBoundParameters.ContainsKey('ConfigPath')) { throw '-ConfigPath selects an existing config for -DiagnosePostgres only.' }
     . (Join-Path $PSScriptRoot 'scripts/windows-python.ps1')
     . (Join-Path $PSScriptRoot 'scripts/windows-paperclip.ps1')
     $runtime = Resolve-DashboardPython -PythonExe $PythonExe -PythonVersion $PythonVersion
@@ -49,7 +61,7 @@ try {
         throw 'PAPERCLIP_API_URL must be an HTTP(S) base URL without credentials, query or fragment.'
     }
 
-    Wait-PaperclipReady -BaseUrl $baseUrl -PythonExe $python -AppFile $appFile -ProjectRoot $PSScriptRoot -StartupTimeout $StartupTimeout
+    Wait-PaperclipReady -BaseUrl $baseUrl -PythonExe $python -AppFile $appFile -ProjectRoot $PSScriptRoot -StartupTimeout $StartupTimeout -ExistingOnly:$ExistingOnly
     Write-Host "Paperclip ready at $baseUrl. The dashboard uses the only company, or the configured PAPERCLIP_COMPANY_ID."
     if (-not $exists -or $updates.Count) { [IO.File]::WriteAllLines($envFile, [string[]]$lines) }
     if (-not (Get-Command herdr -ErrorAction SilentlyContinue)) { Write-Host 'Herdr not found; terminal output is unavailable. Paperclip does not need Herdr.' }

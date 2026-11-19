@@ -23,7 +23,18 @@ function Start-LocalPaperclip([string]$ProjectRoot) {
     }
     Write-Host 'Starting Paperclip: npm.cmd start (logs in this console)'
     # Only fixed commands go through cmd; user paths/URLs are never interpolated.
-    Start-Process -FilePath $env:ComSpec -ArgumentList '/d', '/c', 'npm.cmd start' -WorkingDirectory $ProjectRoot -NoNewWindow -PassThru
+    Start-PaperclipCommand -ProjectRoot $ProjectRoot
+}
+
+function Start-PaperclipCommand([string]$ProjectRoot) {
+    # Retain the original process handle: Windows PowerShell 5.1's
+    # Start-Process -PassThru can lose ExitCode on a quickly exiting child.
+    $info = New-Object System.Diagnostics.ProcessStartInfo
+    $info.FileName = $env:ComSpec
+    $info.Arguments = '/d /c npm.cmd start'
+    $info.WorkingDirectory = $ProjectRoot
+    $info.UseShellExecute = $false # inherit the console; no redirected pipe to fill
+    return [Diagnostics.Process]::Start($info)
 }
 
 function Get-PaperclipState([string]$PythonExe, [string]$AppFile, [string]$BaseUrl, [int]$TimeoutSec) {
@@ -46,13 +57,17 @@ function Test-LocalPaperclipListener {
     } catch { return $null } # unknown is not evidence that a timed-out port is free
 }
 
-function Wait-PaperclipReady([string]$BaseUrl, [string]$PythonExe, [string]$AppFile, [string]$ProjectRoot, [int]$StartupTimeout) {
-    $managed = $BaseUrl -in 'http://127.0.0.1:3100', 'http://localhost:3100'
+function Wait-PaperclipReady([string]$BaseUrl, [string]$PythonExe, [string]$AppFile, [string]$ProjectRoot, [int]$StartupTimeout, [switch]$ExistingOnly) {
+    $managed = -not $ExistingOnly -and $BaseUrl -in 'http://127.0.0.1:3100', 'http://localhost:3100'
     $proc = $null
     $lastState = 'not probed'
     $timer = [Diagnostics.Stopwatch]::StartNew()
     while ($true) {
-        if ($proc -and $proc.HasExited) { throw "Paperclip exited (code $($proc.ExitCode)). See the error above; try npm.cmd start and npm.cmd run doctor." }
+        if ($proc -and $proc.HasExited) {
+            $code = $proc.ExitCode
+            $reason = if ($null -eq $code) { 'exit code unavailable' } else { "code $code" }
+            throw "Paperclip exited ($reason). See the first server error above. For a PostgreSQL reuse refusal, run .\setup-dashboard.cmd -DiagnosePostgres. Do not remove postmaster.pid or start a second instance."
+        }
         $remaining = $StartupTimeout - $timer.Elapsed.TotalSeconds
         if ($remaining -le 0) {
             $hint = if ($managed) { 'Inspect port 3100 with Get-NetTCPConnection -LocalPort 3100 -State Listen.' } else { 'Check the configured host/port.' }

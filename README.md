@@ -107,6 +107,7 @@ Actual dashboard screens with **sample data**, not a live customer board or evid
 
 | Symptom / نشانه | Next step / اقدام |
 |---|---|
+| **Refusing to reuse PostgreSQL** / خطای استفادهٔ مجدد از دیتابیس | Do not remove the lock. [Check the existing instance on Windows](docs/SETUP.en.md#postgres-reuse) / [تشخیص فقط‌خواندنی و اتصال به برد قبلی](docs/SETUP.fa.md#postgres-reuse) |
 | **Online, no agents** / آنلاین ولی بدون عضو | Check the company shown in the header; register the member and check approvals. / نام شرکت بالای میز را ببینید، عضو را ثبت کنید و تأیید استخدام را بررسی کنید. |
 | **No Herdr target** / ایجنت پیدا نمی‌شود | `herdr session list --json` → `herdr --session NAME agent list`. A running server with zero agents is not a missing CLI. [Windows checks](docs/SETUP.en.md#desk-diagnostics) / [فرق نشست، پنجره و ایجنت](docs/SETUP.fa.md#desk-diagnostics) |
 | **Agent verification failed** / تأیید Hermes ناموفق است | Open the saved agent's **Harness / Runtime → Run test → Test details**; fix the first error or warning *before* retrying. / [رفع خطای Hermes، مستقل از Herdr](docs/SETUP.fa.md#verification) |

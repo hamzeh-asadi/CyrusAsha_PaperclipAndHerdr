@@ -6,6 +6,7 @@ on:
       - '.github/workflows/windows-launcher.yml'
       - 'setup-dashboard.*'
       - 'scripts/windows-*.ps1'
+      - 'scripts/postgres-directory-check.mjs'
       - 'tests/test_windows_*.ps1'
       - 'tests/smoke_herdr_session.py'
       - 'dashboard/*.py'
@@ -31,6 +32,9 @@ jobs:
         run: |
           .\tests\test_windows_launcher.ps1
           .\tests\test_windows_readiness.ps1
+      - name: Diagnose a disposable native PostgreSQL cluster (no Paperclip board)
+        shell: powershell
+        run: .\tests\test_windows_postgres.ps1 -WithLocalCluster
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: |
