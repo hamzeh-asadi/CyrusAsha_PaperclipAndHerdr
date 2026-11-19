@@ -453,7 +453,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             target, session = output_target(member)
             if not safe_target(target):
                 raise PaperclipError(Message("err.target"), 400)
-            output = cli_text('agent', 'read', target, f'--source={source}', f'--lines={lines}',
+            output = cli_text('agent', 'read', target, '--source', source, '--lines', lines,
                               session=session)
             self.send_json({'agent_id': agent_id, 'herdr_agent_name': target, 'output': output, 'success': True})
         except PaperclipError as exc:

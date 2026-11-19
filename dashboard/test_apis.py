@@ -235,7 +235,7 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(self.request("/api/agents/a/output")[1]["output"], "متن")
             check.assert_called_once_with("w1:p1", "t1", "agy", "two")
             read.assert_called_once_with(
-                "agent", "read", "w1:p1", "--source=recent-unwrapped", "--lines=120", session="two"
+                "agent", "read", "w1:p1", "--source", "recent-unwrapped", "--lines", "120", session="two"
             )
 
     def test_access_error_is_not_a_connection_error(self):
