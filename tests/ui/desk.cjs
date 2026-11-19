@@ -38,8 +38,11 @@ const example = {
   ],
 };
 // The fixture dataset is chosen explicitly for each capture, never by UI language.
+const damagedTitle = "????? ??????? ??????? Paperclip+Herdr";
+const dashboardTitle = "ایجاد داشبورد یکپارچه Paperclip+Herdr";
 let dataset = "fa",
-  diagnostics = false;
+  diagnostics = false,
+  boardTitle = damagedTitle;
 const scopes = [];
 const registrations = [];
 const submissions = [];
@@ -98,7 +101,14 @@ async function fixture(req, res) {
                   {
                     id: "damaged",
                     identifier: "ATL-99",
-                    title: "????? Paperclip+Herdr",
+                    title: boardTitle,
+                    ...(boardTitle === damagedTitle ? { titleWarning: "literal_question_marks" } : {}),
+                    status: "backlog",
+                  },
+                  {
+                    id: "other-damaged",
+                    identifier: "ATL-100",
+                    title: "Fix ??? in Paperclip+Herdr",
                     titleWarning: "literal_question_marks",
                     status: "backlog",
                   },
@@ -293,10 +303,60 @@ async function run() {
     diagnostics = true;
     await page.reload();
     await ready();
-    await switchTo("en");
+    await switchTo("fa");
     await page.select("#parent", "damaged");
     await page.waitForSelector("#parentWarning:not([hidden]) a[href$='/issues/ATL-99']");
-    assert.match(await page.$eval("#parent", (s) => s.selectedOptions[0].textContent), /Paperclip\+Herdr/);
+    assert.equal(await page.$eval("#parentWarning .title-example", (n) => n.textContent), dashboardTitle);
+    await fill(".step-title", "پیش‌نویس من");
+    await page.click("#template");
+    assert.equal(await page.$$eval(".step-title", (rows) => rows.length), 1);
+    assert.equal(await page.$eval(".step-title", (n) => n.value), "پیش‌نویس من");
+    assert.match(await page.$eval("#planFeedback", (n) => n.textContent), /کپی نکرد/);
+    await page.click('[data-tab="tasks"]');
+    const damagedCard = await page.waitForSelector(".task a[href$='/issues/ATL-99']");
+    assert.deepEqual(
+      await damagedCard.evaluate((a) =>
+        ["h3", ".title-example"].map((s) => a.closest("article").querySelector(s).textContent),
+      ),
+      [damagedTitle, dashboardTitle],
+    );
+    assert.equal(await page.$$eval(".task .title-example", (nodes) => nodes.length), 1); // not every broken title is about building a dashboard
+    await switchTo("en");
+    assert.match(
+      await page.$eval(".task .title-example", (n) => n.textContent),
+      /unified Paperclip\+Herdr dashboard/,
+    );
+    await page.click('[data-tab="plan"]');
+    await page.select("#parent", "");
+    await fill("#planTitle", damagedTitle);
+    await page.select(".assignee", "manual");
+    const writesBefore = writes.length;
+    await page.click("#template");
+    assert.equal(await page.$$eval(".step-title", (rows) => rows.length), 1);
+    await page.click("#savePlan");
+    assert.match(await page.$eval("#planFeedback", (n) => n.textContent), /Parent issue title/);
+    assert.equal(await page.$eval("#planFields", (n) => n.disabled), false);
+    await fill("#planTitle", dashboardTitle);
+    await fill(".step-title", "broken \uFFFD");
+    await page.click("#savePlan");
+    assert.match(await page.$eval("#planFeedback", (n) => n.textContent), /Step 1/);
+    assert.equal(writes.length, writesBefore);
+    const prefix = "ب".repeat(159);
+    await fill("#planTitle", prefix + "🧪"); // boundary inside a supplementary code point
+    await page.click("#template");
+    assert.deepEqual(
+      await page.$$eval(".step-title", (rows) => rows.slice(1).map((n) => n.value.split(" — ")[1])),
+      [prefix, prefix, prefix],
+    );
+    // Simulate the operator editing the *same* issue on the board, not a desk write.
+    await page.select("#parent", "damaged");
+    boardTitle = dashboardTitle;
+    await page.click("#refresh");
+    await page.waitForFunction(() => document.getElementById("parentWarning").hidden);
+    assert.deepEqual(await page.$eval("#parent", (s) => [s.value, s.selectedOptions[0].textContent]), [
+      "damaged",
+      `ATL-99 · ${dashboardTitle}`,
+    ]);
     await page.click('[data-tab="team"]');
     const configLink = await page.waitForSelector(".member a[href$='/agents/ceo/runtime']");
     assert.match(await configLink.evaluate((n) => n.closest("article").textContent), /Verification failed/);

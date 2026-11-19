@@ -95,6 +95,14 @@ def title_marker(value):
     return None
 
 
+def plan_title(value, label, *, creating=True):
+    title = text(value, label, optional=not creating)
+    # A selected parent is referenced by ID, never renamed as part of a plan.
+    if creating and title_marker(title):
+        reject(Message("err.unreadableTitle", field=label))
+    return title
+
+
 def issue_summary(record):
     summary = {k: record[k] for k in ISSUE_FIELDS if k in record}
     if marker := title_marker(record.get("title")):
@@ -212,20 +220,20 @@ def save_plan(api, company, payload):
     except ValueError:
         reject(Message("err.planId"))
     parent_id = text(payload.get("parentId", ""), Message("field.parent"), 100, True)
-    title = text(payload.get("title", ""), Message("field.parentTitle"), optional=bool(parent_id))
+    title = plan_title(payload.get("title", ""), Message("field.parentTitle"), creating=not parent_id)
     steps = payload.get("steps")
     if not isinstance(steps, list) or not 1 <= len(steps) <= 20:
         reject(Message("err.stepCount"))
     members = {a["id"] for a in roster(api, company) if eligible(a)}
     children = []
-    for step in steps:
+    for n, step in enumerate(steps, 1):
         fields(step, ("title", "description", "assigneeAgentId"))
         assignee = text(step.get("assigneeAgentId"), Message("work.owner"), 100)
         if assignee not in members:
             reject(Message("err.assignee"), 409)
         children.append(
             {
-                "title": text(step.get("title"), Message("step.title")),
+                "title": plan_title(step.get("title"), Message("step.number", n=n)),
                 "assigneeAgentId": assignee,
                 "description": text(step.get("description", ""), Message("step.description"), 3000, True),
             }

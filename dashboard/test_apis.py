@@ -8,6 +8,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import uuid
 from contextlib import ExitStack, contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -35,6 +36,8 @@ class Upstream(BaseHTTPRequestHandler):
     def do_GET(self):
         self.server.requests.append((self.command, self.path, self.headers.get("Authorization")))
         status, body = self.server.routes.get((self.command, self.path), (404, {}))
+        if callable(body):
+            body = body(self)
         self.send_response(status)
         self.end_headers()
         self.wfile.write(body if isinstance(body, bytes) else json.dumps(body).encode())
@@ -167,6 +170,39 @@ class DashboardTests(unittest.TestCase):
             ["literal_question_marks", None, None, "replacement_character"],
         )
         self.assertTrue(all(req[0] == "GET" for req in self.upstream.requests))
+
+    def test_readable_persian_titles_round_trip_through_both_http_hops(self):
+        posted = []
+
+        def echo_issue(handler):
+            body = json.loads(handler.rfile.read(int(handler.headers["Content-Length"])).decode("utf-8"))
+            posted.append((handler.headers.get_content_charset(), body["title"]))
+            return {**body, "id": str(len(posted)), "companyId": "c"}
+
+        self.upstream.routes.update(
+            {
+                ("GET", "/api/companies"): (200, [{"id": "c"}]),
+                ("GET", "/api/companies/c/agents"): (200, [{"id": "a", "status": "idle"}]),
+                ("POST", "/api/companies/c/issues"): (201, echo_issue),
+            }
+        )
+        title, step = "ایجاد داشبورد یکپارچه Paperclip+Herdr", "آیا نیم‌فاصله حفظ می‌شود؟ Why?"
+        plan = {
+            "companyId": "c",
+            "requestId": str(uuid.uuid4()),
+            "title": title,
+            "steps": [{"title": step, "assigneeAgentId": "a"}],
+        }
+        request = Request(
+            self.dashboard_url + "/api/plans",
+            data=json.dumps(plan, ensure_ascii=False).encode("utf-8"),
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
+        with urlopen(request, timeout=5) as reply:
+            result = json.load(reply)
+        self.assertEqual(posted, [("utf-8", title), ("utf-8", step)])
+        self.assertEqual([r["title"] for r in [result["parent"], *result["children"]]], [title, step])
+        self.assertNotIn("titleWarning", result["parent"])
 
     def test_session_routes_are_local_and_targets_remain_scoped(self):
         with (

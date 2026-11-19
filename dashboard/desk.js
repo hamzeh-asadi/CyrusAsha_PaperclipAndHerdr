@@ -21,6 +21,9 @@ const eligible = (a) => ["active", "idle", "running"].includes(a.status) && a.as
 const isHermes = (a) => ["hermes_local", "hermes_gateway"].includes(a.adapterType);
 const memberFor = (id) => members.find((a) => a.id === id);
 const ref = (i) => i.identifier || i.id;
+// Mirror team_desk.title_marker for immediate feedback on unsaved input. A
+// question at the end of a sentence (including Persian ؟) is not a lost word.
+const unreadableTitle = (title) => /\uFFFD|(?:^|\s)\?{3,}(?=\s|$)/u.test(title);
 const stateName = (value) =>
   DeskLocale.has("state." + value) ? t("state." + value) : value || t("state.unknown");
 const shortMode = (a) =>
@@ -205,6 +208,19 @@ function render() {
   renderTeam();
   renderTasks();
 }
+function titleNotice(issue) {
+  const note = el("div", "message warn", t("work.titleWarning", { id: ref(issue) }));
+  // Offer an example only when the project name is the only legible text.
+  // Never use an issue number or a guessed title as a replacement for board data.
+  if (/^(?:[?\uFFFD]+\s+)+Paperclip\s*\+\s*Herdr$/iu.test(issue.title.trim())) {
+    const line = el("div", "", t("work.suggestDashboardTitle"));
+    line.append(" ", el("bdi", "title-example", t("work.dashboardTitleExample")));
+    note.append(line);
+  }
+  if (company?.boardUrl)
+    note.append(" ", boardLink("work.editTitle", "issues/" + encodeURIComponent(ref(issue))));
+  return note;
+}
 function syncParent() {
   const existing = !!$("parent").value;
   $("titleLabel").hidden = existing;
@@ -212,12 +228,7 @@ function syncParent() {
   const issue = issues.find((i) => i.id === $("parent").value);
   const warning = $("parentWarning");
   warning.hidden = !issue?.titleWarning;
-  warning.replaceChildren();
-  if (issue?.titleWarning) {
-    warning.append(t("work.titleWarning", { id: ref(issue) }));
-    if (company?.boardUrl)
-      warning.append(" ", boardLink("work.editTitle", "issues/" + encodeURIComponent(ref(issue))));
-  }
+  warning.replaceChildren(...(issue?.titleWarning ? [titleNotice(issue)] : []));
 }
 function numberSteps() {
   [...$("steps").children].forEach(
@@ -244,10 +255,11 @@ function addStep(title = "") {
   return row;
 }
 function template() {
-  const topic = (
-    $("parent").value ? issues.find((i) => i.id === $("parent").value)?.title : $("planTitle").value
-  )?.trim();
+  const parent = issues.find((i) => i.id === $("parent").value);
+  const topic = ($("parent").value ? parent?.title : $("planTitle").value)?.trim();
   if (!topic) return message("planFeedback", copy("msg.needParent"), true);
+  if (parent?.titleWarning || unreadableTitle(topic))
+    return message("planFeedback", copy("msg.templateTitle"), true);
   const rows = [...$("steps").children];
   if (
     rows.length === 1 &&
@@ -257,9 +269,9 @@ function template() {
   )
     rows[0].remove();
   if ($("steps").children.length > 17) return message("planFeedback", copy("msg.templateFull"), true);
-  ["template.define", "template.build", "template.test"].forEach((key) =>
-    addStep(t(key) + " — " + topic.slice(0, 160)),
-  );
+  // Keep the input length budget without splitting an emoji into a lone UTF-16 surrogate.
+  const excerpt = topic.slice(0, 160).replace(/[\uD800-\uDBFF]$/u, "");
+  ["template.define", "template.build", "template.test"].forEach((key) => addStep(t(key) + " — " + excerpt));
   message("planFeedback", copy("msg.template"));
 }
 function unlockPlan() {
@@ -271,18 +283,27 @@ function unlockPlan() {
 async function savePlan(event) {
   event.preventDefault();
   if (saving || !local || !company) return;
-  if (!pendingPlan)
+  if (!pendingPlan) {
+    const rows = [...$("steps").children];
+    const badParent = !$("parent").value && unreadableTitle($("planTitle").value);
+    const badStep = rows.findIndex((row) => unreadableTitle(row.querySelector(".step-title").value));
+    if (badParent || badStep !== -1) {
+      const field = badParent ? copy("field.parentTitle") : copy("step.number", { n: badStep + 1 });
+      (badParent ? $("planTitle") : rows[badStep].querySelector(".step-title")).focus();
+      return message("planFeedback", copy("err.unreadableTitle", { field }), true);
+    }
     pendingPlan = {
       companyId: company.id,
       requestId: crypto.randomUUID(),
       parentId: $("parent").value,
       title: $("parent").value ? "" : $("planTitle").value,
-      steps: [...$("steps").children].map((r) => ({
+      steps: rows.map((r) => ({
         title: r.querySelector("input").value,
         assigneeAgentId: r.querySelector("select").value,
         description: r.querySelector("textarea").value,
       })),
     };
+  }
   saving = true;
   $("savePlan").disabled = true;
   $("discard").hidden = true;
@@ -579,16 +600,12 @@ function renderTasks() {
       ),
     );
     const actions = el("div", "task-actions");
-    if (i.titleWarning) card.append(el("p", "message warn", t("work.titleWarning", { id: ref(i) })));
+    if (i.titleWarning) card.append(titleNotice(i));
     actions.append(btn(t("work.sheet"), () => sheet(i)));
-    if (company?.boardUrl)
+    if (company?.boardUrl && !i.titleWarning)
       actions.append(
         boardLink(
-          i.titleWarning
-            ? "work.editTitle"
-            : i.status === "in_review"
-              ? "work.boardReview"
-              : "work.boardIssue",
+          i.status === "in_review" ? "work.boardReview" : "work.boardIssue",
           "issues/" + encodeURIComponent(ref(i)),
         ),
       );

@@ -514,6 +514,10 @@ label > textarea,
   background: var(--tint);
   color: #204e69;
 }
+.title-example {
+  font-weight: 700;
+  user-select: all;
+}
 .message.warn {
   color: #7b4526;
   background: #fff1dd;

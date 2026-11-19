@@ -137,9 +137,15 @@ On the **saved member's** card choose **Configuration & agent test** (Paperclip:
 | `hermes_no_api_keys`, provider mismatch, `hermes_hello_probe_failed` | For local credentials use `hermes setup` for the intended provider/model. For a managed AI connection check the saved agent's selected connection, endpoint and model. The managed probe tests that connection, not a separate interactive login. In this Paperclip version even an overall **warn** without a successful verification probe can hold the member in verification. |
 | `hermes_gateway` · missing URL/key or health failure | This adapter talks to a Hermes **API server**, not to a local CLI or Herdr pane. Verify the API base URL, matching credential and reachability from Paperclip; use HTTPS for non-loopback gateways. A gateway credential is not a Paperclip board key. |
 
-### An issue title looks like `?????`
+<a id="issue-title"></a>
 
-`CYR-2` is an issue identifier; the text after it is the company's saved title. The desk flags standalone runs of literal ASCII `?` and the Unicode replacement character in the **decoded API response**, without changing the title. Open **the same issue** in Paperclip. If those characters are in the record and were not intended, re-enter the original title there. No font, language switch or automatic guess restores missing letters. If Paperclip shows the correct Persian, **do not rename it**: compare the current desk API and browser display. On a default local desk this read-only check prints just the ID and marker for an open issue:
+### What should I call `CYR-2`?
+
+`CYR-2` is the **issue identifier**, not its title. If the description is about building this dashboard, a suitable Persian title is **ایجاد داشبورد یکپارچه Paperclip+Herdr** (Build a unified Paperclip+Herdr dashboard). This is a suggestion, not a decoding of the question marks.
+
+Open **Paperclip → Issues → CYR-2** or follow **Edit the title in Paperclip** from the desk. If the board title is already correct, leave it alone. Otherwise click the title on that same issue, enter the text appropriate to its description and press **Enter**. Refresh the desk: the ID stays the same. Do not recreate the issue or include the ID in its title.
+
+The desk preserves the title it received. The three-step template does not copy an unreadable parent title. New parent/subtask titles with standalone words of three or more ASCII `?` or the replacement character `�` are rejected before any issues are created; normal questions (`Why?`, `چرا؟`) are valid. An existing parent can still be split using manually entered, readable subtask titles. This read-only local check prints just the ID and marker for an open issue:
 
 ```powershell
 (Invoke-RestMethod http://127.0.0.1:8000/api/tickets).tickets | Where-Object identifier -eq 'CYR-2' | Select-Object identifier,titleWarning

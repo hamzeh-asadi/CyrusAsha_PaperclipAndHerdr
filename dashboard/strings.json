@@ -1008,8 +1008,24 @@
     "fa": "ردشده"
   },
   "work.titleWarning": {
-    "en": "The saved title for {id} contains question-mark words or replacement characters. If this was Persian text, re-enter its original title on the same issue in Paperclip. Changing language or font cannot recover missing letters.",
-    "fa": "در عنوان دریافتیِ {id} کلمه‌ای از علامت سؤال یا نویسهٔ جایگزین دیده شد. اگر متن فارسی بوده، عنوان اصلی را روی همان تیکت در Paperclip دوباره بنویسید. تغییر زبان یا قلم حروف از‌دست‌رفته را برنمی‌گرداند."
+    "en": "{id} is the issue ID. If the title is also unreadable in Paperclip, click the title on that same issue and enter one that matches its description. The placeholders cannot tell us the original words.",
+    "fa": "{id} شناسهٔ تیکت است. اگر عنوان در خود Paperclip هم ناخواناست، روی عنوان همان تیکت کلیک کنید و عنوانی مطابق شرح کار بنویسید. از روی این نشانه‌ها نمی‌شود کلمات اصلی را بازیابی کرد."
+  },
+  "work.suggestDashboardTitle": {
+    "en": "If this task is to build the dashboard, a possible title is:",
+    "fa": "اگر کار این تیکت ساخت داشبورد است، عنوان پیشنهادی:"
+  },
+  "work.dashboardTitleExample": {
+    "en": "Build a unified Paperclip+Herdr dashboard",
+    "fa": "ایجاد داشبورد یکپارچه Paperclip+Herdr"
+  },
+  "msg.templateTitle": {
+    "en": "The template did not copy the unreadable title. Correct the parent title first or enter the subtask titles yourself.",
+    "fa": "الگو عنوان ناخوانا را کپی نکرد. ابتدا عنوان کار اصلی را اصلاح کنید یا عنوان زیرکارها را خودتان بنویسید."
+  },
+  "err.unreadableTitle": {
+    "en": "{field}: the title contains question-mark placeholders or a replacement character. Re-enter a readable title before saving.",
+    "fa": "{field}: در عنوان، کلمه‌ای از علامت سؤال یا نویسهٔ جایگزین دیده شد. پیش از ثبت، عنوان خوانا وارد کنید."
   },
   "work.checkTitle": {
     "en": "Check the saved title",

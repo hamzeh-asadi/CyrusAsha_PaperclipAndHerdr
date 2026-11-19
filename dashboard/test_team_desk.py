@@ -89,14 +89,33 @@ class DeskTests(unittest.TestCase):
         self.assertTrue(all(v["status"] == "backlog" for v in self.board.issues.values()))
         self.assertTrue(all((m, p) == ("POST", "/api/companies/c1/issues") for m, p, _ in self.board.writes))
 
+    def test_unreadable_new_titles_are_rejected_before_any_issue_is_created(self):
+        for bad in ("????? ??????? ??????? Paperclip+Herdr", "نام \ufffd"):
+            for parent in (True, False):
+                plan = copy.deepcopy(self.plan)
+                (plan if parent else plan["steps"][-1])["title"] = bad
+                with self.subTest(title=bad, parent=parent):
+                    with self.assertRaises(PaperclipError) as exc:
+                        desk.save_plan(self.board, "c1", plan)
+                    self.assertEqual(exc.exception.status, 400)
+                    self.assertEqual(exc.exception.args[0].key, "err.unreadableTitle")
+                    self.assertIn("Parent issue title" if parent else "Step 2", str(exc.exception))
+                    self.assertEqual(self.board.writes, [])  # not even the valid parent or first child
+
     def test_split_existing_parent_and_inherit_visibility_and_project(self):
         self.board.issues["current"] = {
             "id": "current",
+            "title": "????? ??????? ??????? Paperclip+Herdr",
             "companyId": "c1",
             "visibility": "private",
             "projectId": "proj",
         }
-        desk.save_plan(self.board, "c1", dict(self.plan, parentId="current", title=""))
+        result = desk.save_plan(self.board, "c1", dict(self.plan, parentId="current", title=""))
+        self.assertEqual(result["parent"]["titleWarning"], "literal_question_marks")
+        self.assertEqual(result["parent"]["title"], self.board.issues["current"]["title"])
+        self.assertEqual(
+            [data["title"] for _, _, data in self.board.writes], [s["title"] for s in self.plan["steps"]]
+        )
         self.assertEqual(len(self.board.writes), 2)
         for _, _, data in self.board.writes:
             self.assertEqual(
