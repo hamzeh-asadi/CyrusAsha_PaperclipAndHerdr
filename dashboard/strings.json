@@ -524,8 +524,8 @@
     "fa": "برنامهٔ ایجنت، مثلاً Freebuff، را باز کنید و برگهٔ کار را آنجا بچسبانید. میز کار هیچ کلیدی به پنجره نمی‌فرستد."
   },
   "team.linkedHint": {
-    "en": "Start the agent inside Herdr (agy for Antigravity). Select a detected session. The desk does not install or launch programs.",
-    "fa": "ایجنت را داخل Herdr اجرا کنید (برای Antigravity، دستور agy). فقط نشست شناخته‌شده را انتخاب کنید؛ میز کار برنامه‌ای نصب یا اجرا نمی‌کند."
+    "en": "Open herdr in a project terminal. Inside its pane start the agent (agy for Antigravity). Select the server session, then the agent in that session.",
+    "fa": "در ترمینال پروژه herdr را باز کنید؛ داخل پنجرهٔ آن ایجنت را اجرا کنید (برای Antigravity: دستور agy). اول نشست سرور و بعد ایجنت همان نشست را انتخاب کنید."
   },
   "team.shortManual": {
     "en": "Manual handoff",
@@ -536,16 +536,12 @@
     "fa": "در حال خواندن نشست‌ها…"
   },
   "team.match": {
-    "en": "Choose the session for this member.",
-    "fa": "نشست متعلق به همین عضو را انتخاب کنید."
+    "en": "Choose the detected agent in {session}.",
+    "fa": "ایجنت شناسایی‌شده در نشست {session} را انتخاب کنید."
   },
   "team.noDetected": {
-    "en": "No detected sessions. Start the CLI and rescan, or choose manual handoff.",
-    "fa": "نشست شناخته‌شده‌ای پیدا نشد. بعد از اجرای CLI دوباره جست‌وجو کنید یا تحویل دستی را برگزینید."
-  },
-  "team.noSession": {
-    "en": "No sessions",
-    "fa": "بدون نشست"
+    "en": "Session {session} is running, but no bindable coding agent was found. Start agy inside its Herdr pane, complete sign-in, then check: herdr --session {session} agent list. An ordinary shell is not an agent.",
+    "fa": "نشست {session} روشن است، اما ایجنت قابل اتصال پیدا نشد. داخل پنجرهٔ همان Herdr دستور agy را اجرا کنید، ورود را کامل کنید و بعد herdr --session {session} agent list را بررسی کنید. شل خالی ایجنت نیست."
   },
   "team.pickAgain": {
     "en": "Select the live session again.",
@@ -776,20 +772,16 @@
     "fa": "تغییر وضعیت بازبینی تأیید نشد. تیکت را در Paperclip بررسی کنید."
   },
   "err.herdrMissing": {
-    "en": "Herdr is not on PATH. It is not needed for manual handoff.",
-    "fa": "Herdr در PATH نیست. برای تحویل دستی به آن نیاز ندارید."
-  },
-  "err.herdrCli": {
-    "en": "Herdr did not respond. Open the app and agent session under the same OS user.",
-    "fa": "Herdr پاسخ معتبر نداد. برنامه و نشست ایجنت را با همان کاربر باز کنید."
+    "en": "Herdr was not found by the dashboard. Check herdr --version in a new terminal, then restart the desk. Windows: Get-Command herdr.exe. Manual handoff needs no Herdr.",
+    "fa": "داشبورد برنامهٔ Herdr را پیدا نکرد. در یک ترمینال تازه herdr --version و در ویندوز Get-Command herdr.exe را بررسی کنید، سپس میز را دوباره باز کنید. تحویل دستی به Herdr نیاز ندارد."
   },
   "err.herdrJson": {
-    "en": "Herdr did not return valid JSON.",
-    "fa": "پاسخ JSON معتبر از Herdr دریافت نشد."
+    "en": "Herdr did not return an API result. Check herdr --version and the selected session’s status.",
+    "fa": "پاسخ API مورد انتظار از Herdr دریافت نشد. herdr --version و وضعیت نشست انتخابی را بررسی کنید."
   },
   "err.herdrList": {
-    "en": "Unrecognized Herdr agent list format.",
-    "fa": "قالب فهرست ایجنت‌های Herdr شناخته نشد."
+    "en": "Unexpected agent list. Check the selected session’s herdr agent list output; result.agents must be an array.",
+    "fa": "قالب فهرست ایجنت‌ها شناخته نشد. در همان نشست، پاسخ herdr agent list را بررسی کنید؛ result.agents باید آرایه باشد."
   },
   "err.herdrBinding": {
     "en": "The Herdr session no longer matches the registered binding.",
@@ -828,8 +820,8 @@
     "fa": "این نام قبلاً ثبت شده است. رکورد قبلی تغییر نکرد؛ نام دیگری انتخاب کنید."
   },
   "err.duplicateTarget": {
-    "en": "This session is already linked to a company member.",
-    "fa": "این نشست از قبل به یک ایجنت شرکت وصل است."
+    "en": "This Herdr agent is already linked to a company member.",
+    "fa": "این ایجنت Herdr از قبل به یک عضو شرکت وصل است."
   },
   "err.staleTarget": {
     "en": "No unique matching live session. Refresh the Herdr list.",
@@ -910,5 +902,129 @@
   "field.parentTitle": {
     "en": "Parent issue title",
     "fa": "عنوان کار اصلی"
+  },
+  "err.herdrExe": {
+    "en": "HERDR_DESK_EXE must name an existing absolute path to herdr (herdr.exe on Windows). Check the local install path.",
+    "fa": "مسیر HERDR_DESK_EXE باید مسیر کامل فایل موجود herdr باشد (در ویندوز herdr.exe). مسیر نصب محلی را بررسی کنید."
+  },
+  "err.herdrStopped": {
+    "en": "The CLI is installed, but no Herdr server is listening in the selected session. Open herdr in the project terminal, then rescan.",
+    "fa": "CLI نصب است، اما سرور نشست انتخاب‌شده در دسترس نیست. در ترمینال پروژه herdr را باز کنید؛ سپس دوباره نشست‌ها را پیدا کنید."
+  },
+  "err.herdrProtocol": {
+    "en": "The Herdr client and running server use different protocols. Check herdr status and the installed version. Save active work before updating or restarting anything.",
+    "fa": "نسخهٔ پروتکل CLI و سرور در حال اجرای Herdr یکسان نیست. herdr status و نسخه را بررسی کنید؛ قبل از به‌روزرسانی یا راه‌اندازی مجدد، کار باز را حفظ کنید."
+  },
+  "err.herdrAccess": {
+    "en": "Cannot access the local Herdr session. Use the same OS account, Windows/WSL environment and elevation for both programs.",
+    "fa": "دسترسی به نشست محلی Herdr برقرار نشد. هر دو برنامه را با همان حساب، در همان محیط ویندوز یا WSL و با سطح دسترسی یکسان باز کنید."
+  },
+  "err.herdrVersion": {
+    "en": "This Herdr CLI did not recognize the command. Check herdr --version and herdr session list --json in the terminal that starts the desk.",
+    "fa": "این نسخهٔ CLI دستور را نشناخت. در ترمینال راه‌انداز میز، herdr --version و herdr session list --json را بررسی کنید."
+  },
+  "err.herdrExit": {
+    "en": "Herdr exited with code {code}. Run herdr session list --json and the selected session’s agent list in the same terminal to see the local error.",
+    "fa": "Herdr با کد {code} خارج شد. در همان ترمینال herdr session list --json و سپس agent list نشست انتخابی را اجرا کنید تا خطای محلی را ببینید."
+  },
+  "err.herdrTimeout": {
+    "en": "The Herdr command timed out. Check herdr status in the selected session; this is not an empty agent list.",
+    "fa": "مهلت پاسخ Herdr تمام شد. herdr status را در همان نشست بررسی کنید؛ این خطا به معنی خالی بودن فهرست ایجنت‌ها نیست."
+  },
+  "err.herdrStart": {
+    "en": "The Herdr executable could not start. Check herdr --version and the complete native installation, not just a copied .exe.",
+    "fa": "فایل اجرایی Herdr راه نیفتاد. herdr --version و نصب کامل نسخهٔ بومی را بررسی کنید؛ کپی کردن فقط فایل exe ممکن است کافی نباشد."
+  },
+  "err.sessionName": {
+    "en": "Select a valid Herdr server session before linking an agent.",
+    "fa": "قبل از اتصال ایجنت، یک نشست معتبر سرور Herdr انتخاب کنید."
+  },
+  "err.sessionList": {
+    "en": "Unexpected session list. Check that herdr session list --json returns a sessions array.",
+    "fa": "فهرست نشست‌ها قابل خواندن نبود. خروجی herdr session list --json باید آرایهٔ sessions داشته باشد."
+  },
+  "err.notReady": {
+    "en": "Paperclip has not admitted this member for execution. Check its lifecycle and configuration on the board.",
+    "fa": "Paperclip هنوز مجوز اجرای این عضو را نداده است. وضعیت آماده‌سازی و تنظیماتش را در تابلوی شرکت بررسی کنید."
+  },
+  "team.sessionAgent": {
+    "en": "Detected agent in this session",
+    "fa": "ایجنت شناسایی‌شده در این نشست"
+  },
+  "team.selectAgent": {
+    "en": "Select a detected agent…",
+    "fa": "انتخاب ایجنت شناسایی‌شده…"
+  },
+  "team.noServer": {
+    "en": "No running local Herdr server session was found. Open herdr in a project terminal, leave it running and rescan. Windows and WSL sessions are separate.",
+    "fa": "هیچ نشست سرور محلی Herdr در حال اجرا پیدا نشد. در ترمینال پروژه herdr را باز کنید، آن را باز بگذارید و دوباره جست‌وجو کنید. نشست‌های ویندوز و WSL جدا هستند."
+  },
+  "team.chooseServer": {
+    "en": "Select the server session that owns the agent pane; names can repeat across sessions.",
+    "fa": "نشست سروری را که پنجرهٔ ایجنت در آن باز است انتخاب کنید؛ نام ایجنت‌ها بین نشست‌ها می‌تواند تکراری باشد."
+  },
+  "team.useManual": {
+    "en": "Continue with manual handoff",
+    "fa": "ادامه با تحویل دستی"
+  },
+  "team.configureTest": {
+    "en": "Configuration & agent test",
+    "fa": "تنظیمات و آزمون اجرا"
+  },
+  "team.verifyHint": {
+    "en": "Paperclip is withholding runs. Open the saved agent’s configuration, choose Run test, then Test details. Fix the first error or warning before choosing Retry now.",
+    "fa": "Paperclip هنوز اجازهٔ اجرا نمی‌دهد. تنظیمات همین عضو را باز کنید و Run test سپس Test details را بزنید. اول علت خطا یا هشدار را رفع کنید، بعد Retry now را بزنید."
+  },
+  "state.verifying": {
+    "en": "Verifying execution",
+    "fa": "در حال تأیید اجرا"
+  },
+  "state.verificationFailed": {
+    "en": "Verification failed",
+    "fa": "تأیید اجرا ناموفق"
+  },
+  "state.preparing": {
+    "en": "Preparing",
+    "fa": "در حال آماده‌سازی"
+  },
+  "state.resuming": {
+    "en": "Resuming",
+    "fa": "در حال ادامه"
+  },
+  "state.pausing": {
+    "en": "Pausing",
+    "fa": "در حال مکث"
+  },
+  "state.terminating": {
+    "en": "Terminating",
+    "fa": "در حال خاتمه"
+  },
+  "state.cleaning_up": {
+    "en": "Cleaning up",
+    "fa": "در حال پاک‌سازی"
+  },
+  "state.rejected": {
+    "en": "Rejected",
+    "fa": "ردشده"
+  },
+  "work.titleWarning": {
+    "en": "The saved title for {id} contains question-mark words or replacement characters. If this was Persian text, re-enter its original title on the same issue in Paperclip. Changing language or font cannot recover missing letters.",
+    "fa": "در عنوان دریافتیِ {id} کلمه‌ای از علامت سؤال یا نویسهٔ جایگزین دیده شد. اگر متن فارسی بوده، عنوان اصلی را روی همان تیکت در Paperclip دوباره بنویسید. تغییر زبان یا قلم حروف از‌دست‌رفته را برنمی‌گرداند."
+  },
+  "work.checkTitle": {
+    "en": "Check the saved title",
+    "fa": "عنوان ذخیره‌شده را بررسی کنید"
+  },
+  "work.editTitle": {
+    "en": "Edit the title in Paperclip",
+    "fa": "اصلاح عنوان در Paperclip"
+  },
+  "team.nativeHermes": {
+    "en": "Native Paperclip adapter. It does not use a Herdr pane.",
+    "fa": "این آداپتور را خود Paperclip اجرا می‌کند؛ از پنجرهٔ Herdr استفاده نمی‌کند."
+  },
+  "err.hermesOutput": {
+    "en": "This native Hermes adapter has no linked Herdr terminal. Inspect its runs in Paperclip instead.",
+    "fa": "این آداپتور بومی Hermes به ترمینال Herdr وصل نیست. گزارش اجراهایش را در خود Paperclip ببینید."
   }
 }

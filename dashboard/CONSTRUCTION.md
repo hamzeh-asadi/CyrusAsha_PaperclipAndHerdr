@@ -17,6 +17,8 @@ When changing behavior, add tests at the relevant boundary:
 - `test_team_desk.py`: desk HTTP ACLs, approval-preserving hires, plan validation, partial creation/replay and manual handoff.
 - `test_herdr_worker.py`: run identity and issue scope, checkout conflicts, target identity, CLI failure and human-review bookkeeping. Do not inject a dashboard board key to make a worker test pass.
 
+The Windows workflow also downloads the checksum-pinned native Herdr v0.9.5 package to the runner’s temp directory and runs `tests/smoke_herdr_session.py <absolute path to herdr.exe>`. It starts an isolated named server, distinguishes it from the stopped default, reads the empty agent list, and stops its own server. No user board, credentials, or coding agent is used. Full prompt delivery is tested with fixtures, not by calling a provider in CI.
+
 ## Bilingual browser check & README images
 
 `tests/ui/desk.cjs` opens the actual frontend against a temporary loopback fixture with sample companies/issues. It does not read `.env`, start Paperclip/Herdr or contact real agents. It checks FA/EN direction and persistence, all three views on mobile, an edited draft, retained assignee/filter and an identical plan retry across a language change. Without `--screenshots` it writes no images. Browser tools are **optional development tools**, not dashboard dependencies.
@@ -36,7 +38,7 @@ On Linux/macOS set `NODE_PATH` and `CHROME_BIN` to the corresponding local paths
 
 ## Optional full-stack acceptance check
 
-Use a **disposable local Paperclip instance and a test company**. Enrollment, release and review write real records. Do not point a smoke test at an operator's board or coding-agent terminal. A simulated `herdr` on a test PATH can return the real JSON shapes (`result.agents`, `result.agent` with `terminal_id`, `agent`, readiness and status); label that as a simulated CLI, not a real coding-agent run.
+Use a **disposable local Paperclip instance and a test company**. Enrollment, release and review write real records. Do not point a smoke test at an operator's board or coding-agent terminal. A simulated `herdr` on a test PATH can return the real JSON shapes (`sessions` for `session list --json`; `result.agents`, `result.agent` with `terminal_id`, `agent`, readiness and status for the explicitly selected namespace); label that as a simulated CLI, not a real coding-agent run.
 
 1. Open the desk locally in either language. Register a manual member and a detected test session. Repeat one registration: the same member must be returned. Enable hire approval on the test company to check that a pending hire is visible but cannot be assigned until approved and active.
 2. Create two assigned steps. Confirm `backlog`, the same `parentId`, distinct assignees and **zero** runs until release. Repeat the exact plan request: same parent and child IDs. Try splitting an existing open ticket too.

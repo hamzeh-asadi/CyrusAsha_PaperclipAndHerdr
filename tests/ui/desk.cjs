@@ -38,11 +38,14 @@ const example = {
   ],
 };
 // The fixture dataset is chosen explicitly for each capture, never by UI language.
-let dataset = "fa";
+let dataset = "fa",
+  diagnostics = false;
+const scopes = [];
+const registrations = [];
 const submissions = [];
 const writes = [];
 async function fixture(req, res) {
-  const route = new URL(req.url, "http://fixture.invalid").pathname;
+  const { pathname: route, searchParams } = new URL(req.url, "http://fixture.invalid");
   if (req.method === "GET" && Object.hasOwn(staticFiles, route)) {
     const [file, type] = staticFiles[route];
     res.writeHead(200, {
@@ -61,27 +64,78 @@ async function fixture(req, res) {
     if (route === "/api/agents")
       return send(200, {
         company: { id: "fixture", name: example[dataset][0], boardUrl: "/sample-board" },
-        agents: members,
+        agents: diagnostics
+          ? [
+              ...members,
+              {
+                id: "ceo",
+                name: "Hermes-CEO",
+                adapterType: "hermes_local",
+                status: "paused",
+                lifecycleState: "verifying",
+                assignable: false,
+                verificationFailed: true,
+              },
+            ]
+          : members,
         localControl: true,
       });
     if (route === "/api/tickets")
       return send(200, {
-        tickets: example[dataset].slice(1).map((title, i) => ({
-          id: `sample-${i}`,
-          identifier: `ATL-${21 + i}`,
-          title,
-          parentId: i ? "sample-0" : null,
-          assigneeAgentId: [null, "linked", "manual", "manual"][i],
-          status: ["backlog", "in_review", "in_progress", "backlog"][i],
-        })),
+        tickets: example[dataset]
+          .slice(1)
+          .map((title, i) => ({
+            id: `sample-${i}`,
+            identifier: `ATL-${21 + i}`,
+            title,
+            parentId: i ? "sample-0" : null,
+            assigneeAgentId: [null, "linked", "manual", "manual"][i],
+            status: ["backlog", "in_review", "in_progress", "backlog"][i],
+          }))
+          .concat(
+            diagnostics
+              ? [
+                  {
+                    id: "damaged",
+                    identifier: "ATL-99",
+                    title: "????? Paperclip+Herdr",
+                    titleWarning: "literal_question_marks",
+                    status: "backlog",
+                  },
+                ]
+              : [],
+          ),
       });
-    if (route === "/api/herdr/targets")
-      return send(200, { targets: [{ target: "agy-studio", kind: "agy", terminal: "", status: "idle" }] });
+    if (route === "/api/herdr/sessions")
+      return send(200, {
+        sessions: diagnostics
+          ? [
+              { name: "default", running: false },
+              { name: "studio", running: true },
+              { name: "empty", running: true },
+            ]
+          : [{ name: "studio", running: true }],
+      });
+    if (route === "/api/herdr/targets") {
+      const scope = searchParams.get("session");
+      scopes.push(scope);
+      if (!["studio", "empty"].includes(scope)) return send(400, { error: "Missing or wrong scope" });
+      return send(200, {
+        targets:
+          scope === "empty" ? [] : [{ target: "agy-studio", kind: "agy", terminal: "", status: "idle" }],
+      });
+    }
     if (route === "/api/agents/linked/output")
       return send(200, { success: true, output: "<sample terminal>\n✓ OK" });
   }
   if (req.method === "POST") {
     writes.push(route);
+    if (route === "/api/team/enroll") {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      registrations.push(JSON.parse(body));
+      return send(200, { agent: members[0], existing: true });
+    }
     if (route === "/api/plans") {
       let body = "";
       for await (const chunk of req) body += chunk;
@@ -236,10 +290,55 @@ async function run() {
         );
       }
     }
+    diagnostics = true;
+    await page.reload();
+    await ready();
+    await switchTo("en");
+    await page.select("#parent", "damaged");
+    await page.waitForSelector("#parentWarning:not([hidden]) a[href$='/issues/ATL-99']");
+    assert.match(await page.$eval("#parent", (s) => s.selectedOptions[0].textContent), /Paperclip\+Herdr/);
+    await page.click('[data-tab="team"]');
+    const configLink = await page.waitForSelector(".member a[href$='/agents/ceo/runtime']");
+    assert.match(await configLink.evaluate((n) => n.closest("article").textContent), /Verification failed/);
+    assert(await configLink.evaluate((n) => !!n.closest("article").querySelector("button:disabled")));
+    assert.equal(await page.$(".assignee option[value=ceo]"), null);
+    const scanCount = scopes.length;
+    await page.select("#preset", "Antigravity");
+    await page.waitForSelector('#namespace option[value="empty"]');
+    assert.equal(await page.$eval("#namespace", (s) => s.value), "");
+    assert.equal(await page.$('#namespace option[value="default"]'), null);
+    assert.equal(scopes.length, scanCount); // no guessing between two live namespaces
+    await page.select("#namespace", "empty");
+    await page.waitForSelector("#useManual:not([hidden])");
+    assert.match(await page.$eval("#targetHint", (n) => n.textContent), /Session empty is running/);
+    assert(await page.$eval("#enroll", (n) => n.disabled));
+    await page.click("#useManual");
+    assert.equal(await page.$eval("#mode", (s) => s.value), "manual");
+    assert.equal(await page.$eval("#enroll", (n) => n.disabled), false);
+    await page.select("#mode", "agent");
+    await page.waitForSelector("#namespace:not(:disabled)");
+    await page.select("#namespace", "studio");
+    await page.waitForSelector('#target option[value="agy-studio"]');
+    await page.select("#target", "agy-studio");
+    await switchTo("fa");
+    assert.equal(await page.$eval("#namespace", (s) => s.value), "studio");
+    await page.click("#enroll");
+    await page.waitForSelector("#enrollFields:not(:disabled)");
+    assert.deepEqual(registrations, [
+      {
+        companyId: "fixture",
+        name: "Antigravity",
+        mode: "agent",
+        target: "agy-studio",
+        session: "studio",
+        kind: "agy",
+        terminal: "",
+      },
+    ]);
     assert.deepEqual(errors, []);
-    assert.deepEqual(writes, ["/api/plans", "/api/plans"]);
+    assert.deepEqual(writes, ["/api/plans", "/api/plans", "/api/team/enroll"]);
     console.log(
-      "OK · both directions, all three views, persistent language, preserved draft/owner/filter, localized retry with identical request; no agent actions." +
+      "OK · both directions, all three views, persistent language, preserved draft/owner/filter, localized retry, scoped discovery, verification and title guidance; fixture only, no wakes." +
         (capture ? " Six screenshots saved." : ""),
     );
   } finally {

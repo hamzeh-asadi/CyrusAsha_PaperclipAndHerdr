@@ -1,10 +1,13 @@
 """Worker contract, with run credentials and Herdr both simulated (no live agents)."""
 
+import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from contextlib import ExitStack
+from pathlib import Path
 from unittest.mock import patch
 
 import herdr_worker as worker
@@ -33,7 +36,7 @@ class WorkerTests(unittest.TestCase):
         )
         self.checkout = None
         self.end = dict(self.session)
-        self.calls, self.cli = [], []
+        self.calls, self.cli, self.scopes = [], [], []
 
         def board(url, path, method, **kwargs):
             self.assertEqual((url, kwargs["key"], kwargs["run_id"]), ("http://board", "run-only", "run1"))
@@ -43,7 +46,10 @@ class WorkerTests(unittest.TestCase):
             if method == "GET" and path.startswith("/api/issues/"):
                 return self.issue
             if path.startswith("/api/companies/c/issues?"):
-                return [{"id": "wrong", "companyId": "c", "assigneeAgentId": "b", "status": "todo"}, self.issue]
+                return [
+                    {"id": "wrong", "companyId": "c", "assigneeAgentId": "b", "status": "todo"},
+                    self.issue,
+                ]
             if path.endswith("/checkout"):
                 if self.checkout:
                     raise self.checkout
@@ -56,6 +62,7 @@ class WorkerTests(unittest.TestCase):
 
         def herdr(*cmd, **kw):
             self.cli.append(cmd)
+            self.scopes.append(kw.get("session"))
             if cmd[:2] == ("agent", "get"):
                 return {"agent": self.session}
             if cmd[:2] == ("agent", "prompt"):
@@ -92,6 +99,10 @@ class WorkerTests(unittest.TestCase):
         self.assertEqual(self.calls[-2][2]["continuationPolicy"], "none")
         self.assertEqual(self.calls[-1][2]["reviewInteractionId"], "confirmation")
         self.assertEqual(self.calls[-1][2]["status"], "in_review")
+
+    def test_named_binding_uses_same_namespace_for_get_and_prompt(self):
+        worker.run("my-agy", "", "agy", "studio")
+        self.assertEqual(self.scopes, ["studio", "studio"])
 
     def test_mismatched_wake_or_old_checkout_is_not_redispatched(self):
         with patch.dict(os.environ, {"PAPERCLIP_TASK_ID": "different"}):
@@ -174,7 +185,10 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_herdr_subprocess_gets_no_paperclip_credentials(self):
         with (
-            patch.dict(os.environ, {"PAPERCLIP_API_KEY": "test-secret"}),
+            patch.dict(
+                os.environ,
+                {"PAPERCLIP_API_KEY": "test-secret", "HERDR_DESK_EXE": "", "HERDR_SESSION": "other"},
+            ),
             patch.object(worker.shutil, "which", return_value="herdr"),
             patch.object(
                 subprocess,
@@ -182,9 +196,102 @@ class DiscoveryTests(unittest.TestCase):
                 return_value=subprocess.CompletedProcess([], 0, '{"result":{"agents":[]}}', ""),
             ) as cmd,
         ):
-            worker.live_targets()
-            self.assertEqual(cmd.call_args.args[0], ["herdr", "agent", "list"])
+            worker.live_targets("default")
+            self.assertEqual(
+                cmd.call_args.args[0], [os.path.abspath("herdr"), "--session=default", "agent", "list"]
+            )
             self.assertNotIn("PAPERCLIP_API_KEY", cmd.call_args.kwargs["env"])
+
+    def test_session_inventory_does_not_leak_paths_or_confuse_stopped_with_denied(self):
+        reply = {
+            "sessions": [
+                {"name": "default", "running": False, "session_dir": "private"},
+                {"name": "studio-2", "running": True, "socket_path": "private"},
+                {"name": "unavailable", "running": False, "connection_error": "private error"},
+            ]
+        }
+        with patch.object(worker, "cli_text", return_value=json.dumps(reply)) as cli:
+            self.assertEqual(
+                worker.live_sessions(),
+                [
+                    {"name": "default", "running": False, "unreachable": False},
+                    {"name": "studio-2", "running": True, "unreachable": False},
+                    {"name": "unavailable", "running": False, "unreachable": True},
+                ],
+            )
+            cli.assert_called_once_with("session", "list", "--json")
+        for bad in (
+            {"result": reply},
+            {"sessions": [{"name": "../x", "running": True}]},
+            {"sessions": [{"name": "studio", "running": "false"}]},
+            None,
+        ):
+            with self.subTest(bad=bad), patch.object(worker, "cli_text", return_value=json.dumps(bad)):
+                with self.assertRaises(RuntimeError) as exc:
+                    worker.live_sessions()
+                self.assertEqual(exc.exception.args[0].key, "err.sessionList")
+
+    def test_cli_failure_categories_exclude_raw_diagnostics(self):
+        for returncode, stdout, stderr, key in [
+            (1, "", '{"error":{"code":"server_not_running","message":"private"}}', "err.herdrStopped"),
+            (1, '{"error":{"code":"protocol_mismatch"}}', "", "err.herdrProtocol"),
+            (1, "", "private: Access is denied. (os error 5)", "err.herdrAccess"),
+            (2, "", "usage: herdr (private)", "err.herdrVersion"),
+            (7, "", "private", "err.herdrExit"),
+            (0, "not JSON", "", "err.herdrJson"),
+            (0, '{"result":{"workspaces":[]}}', "", "err.herdrList"),
+        ]:
+            with (
+                self.subTest(key=key),
+                patch.object(worker, "herdr_binary", return_value="herdr"),
+                patch.object(
+                    subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess([], returncode, stdout, stderr),
+                ),
+            ):
+                with self.assertRaises(RuntimeError) as exc:
+                    worker.live_targets("studio")
+                self.assertEqual(exc.exception.args[0].key, key)
+                self.assertNotIn("private", str(exc.exception))
+        for error, key in (
+            (subprocess.TimeoutExpired(["private"], 1), "err.herdrTimeout"),
+            (PermissionError("private"), "err.herdrAccess"),
+            (OSError("private"), "err.herdrStart"),
+        ):
+            with (
+                self.subTest(key=key),
+                patch.object(worker, "herdr_binary", return_value="herdr"),
+                patch.object(subprocess, "run", side_effect=error),
+                self.assertRaises(RuntimeError) as exc,
+            ):
+                worker.live_targets("studio")
+            self.assertEqual(exc.exception.args[0].key, key)
+
+    def test_local_executable_selection_is_explicit_and_fail_closed(self):
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch.dict(os.environ, {"LOCALAPPDATA": tmp, "HERDR_DESK_EXE": ""}),
+            patch.object(worker.shutil, "which", return_value=None),
+        ):
+            name = "herdr.exe" if os.name == "nt" else "herdr"
+            with self.assertRaises(RuntimeError) as exc:
+                worker.herdr_binary()
+            self.assertEqual(exc.exception.args[0].key, "err.herdrMissing")
+            alias = Path(tmp) / "Programs" / "Herdr" / "bin" / name
+            alias.parent.mkdir(parents=True)
+            alias.touch()
+            if os.name == "nt":
+                self.assertEqual(worker.herdr_binary(), str(alias))
+            with patch.dict(os.environ, {"HERDR_DESK_EXE": str(alias)}):
+                self.assertEqual(worker.herdr_binary(), str(alias))
+            for invalid in (name, str(alias.parent), str(Path(tmp) / "missing" / name)):
+                with (
+                    patch.dict(os.environ, {"HERDR_DESK_EXE": invalid}),
+                    self.assertRaises(RuntimeError) as exc,
+                ):
+                    worker.herdr_binary()
+                self.assertEqual(exc.exception.args[0].key, "err.herdrExe")
 
     def test_manual_worker_does_not_need_any_cli_or_key(self):
         result = subprocess.run(

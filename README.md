@@ -108,7 +108,9 @@ Actual dashboard screens with **sample data**, not a live customer board or evid
 | Symptom / نشانه | Next step / اقدام |
 |---|---|
 | **Online, no agents** / آنلاین ولی بدون عضو | Check the company shown in the header; register the member and check approvals. / نام شرکت بالای میز را ببینید، عضو را ثبت کنید و تأیید استخدام را بررسی کنید. |
-| **No Herdr sessions** / فهرست نشست‌ها خالی است | Run `herdr agent list` as the same OS user in the same session. Manual handoff is still available. / ایجنت را داخل Herdr با همان کاربر باز کنید؛ تحویل دستی همچنان ممکن است. |
+| **No Herdr target** / ایجنت پیدا نمی‌شود | `herdr session list --json` → `herdr --session NAME agent list`. A running server with zero agents is not a missing CLI. [Windows checks](docs/SETUP.en.md#desk-diagnostics) / [فرق نشست، پنجره و ایجنت](docs/SETUP.fa.md#desk-diagnostics) |
+| **Agent verification failed** / تأیید Hermes ناموفق است | Open the saved agent's **Harness / Runtime → Run test → Test details**; fix the first error or warning *before* retrying. / [رفع خطای Hermes، مستقل از Herdr](docs/SETUP.fa.md#verification) |
+| **`?????` in an issue title** / عنوان ناخوانا | Compare the same issue in Paperclip; re-enter its intended title only if the saved text is wrong. / شناسهٔ تیکت عوض نمی‌شود؛ اگر متن اصلی در برد درست است آن را تغییر ندهید. |
 | **Interrupted plan save** / قطع ارتباط وسط ثبت | Retry **the same plan** without reloading. After a reload, check existing issues first. / بدون بستن صفحه «تلاش مجدد همین طرح» را بزنید؛ بعد از بارگذاری مجدد اول تیکت‌ها را ببینید. |
 | **Delivery uncertain** / نتیجهٔ ارسال نامشخص | Inspect the issue, run and terminal **before** trying again. / قبل از ارسال دوباره، تیکت، گزارش اجرا و نشست را بررسی کنید. |
 

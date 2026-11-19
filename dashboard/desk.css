@@ -361,6 +361,8 @@ h3 {
   color: #245a75;
   background: #e5f2f8;
 }
+.status.verificationFailed,
+.status.verifying,
 .status.pending_approval,
 .status.blocked,
 .status.error {

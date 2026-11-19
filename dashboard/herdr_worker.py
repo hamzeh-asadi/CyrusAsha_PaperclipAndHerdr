@@ -10,35 +10,100 @@ import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 from urllib.parse import quote, urlencode
 
 from desk_text import Message
 from paperclip_client import PaperclipError, request_json, request_human_review
 
 
-def cli_text(*args, timeout=8):
-    binary = shutil.which("herdr.exe" if os.name == "nt" else "herdr")
-    if not binary:
-        raise RuntimeError(Message("err.herdrMissing"))
+def herdr_binary():
+    """No shell, PATH edits or executable supplied by a web request."""
+    preferred = os.environ.get("HERDR_DESK_EXE")
+    name = "herdr.exe" if os.name == "nt" else "herdr"
+    if preferred:
+        path = Path(preferred)
+        if not path.is_absolute() or path.name.casefold() != name or not path.is_file():
+            raise RuntimeError(Message("err.herdrExe"))
+        return str(path)
+    binary = shutil.which(name)
+    if os.name == "nt" and os.getenv("LOCALAPPDATA"):
+        # The installer adds a versioned directory to PATH. Save its stable alias
+        # when it points to that same release, or use it if PATH predates install.
+        alias = Path(os.environ["LOCALAPPDATA"]) / "Programs" / "Herdr" / "bin" / name
+        try:
+            if alias.is_file() and (not binary or alias.samefile(binary)):
+                return str(alias)
+        except OSError:
+            pass  # e.g. an update rotated the alias during lookup
+    if binary:
+        return os.path.abspath(binary)
+    raise RuntimeError(Message("err.herdrMissing"))
+
+
+def safe_session(name):
+    return (
+        isinstance(name, str)
+        and name not in (".", "..")
+        and re.fullmatch(r"[a-zA-Z0-9._-]{1,64}", name) is not None
+    )
+
+
+def _cli_failure(result):
+    # Never echo stderr, the prompt argv, filesystem paths or terminal output.
+    known = {
+        "server_not_running": "err.herdrStopped",
+        "protocol_mismatch": "err.herdrProtocol",
+        "permission_denied": "err.herdrAccess",
+    }
+    for stream in (result.stdout, result.stderr):
+        try:
+            error = json.loads(stream)["error"]
+            if isinstance(error, dict) and isinstance(error.get("code"), str) and error["code"] in known:
+                return Message(known[error["code"]])
+        except (TypeError, ValueError, KeyError, IndexError):
+            pass
+    reason = (result.stderr or "").lower()
+    if "access is denied" in reason or "permission denied" in reason or "os error 5)" in reason:
+        return Message("err.herdrAccess")
+    if result.returncode == 2 and any(
+        word in reason for word in ("usage:", "unrecognized", "unknown command", "unknown option")
+    ):
+        return Message("err.herdrVersion")
+    return Message("err.herdrExit", code=str(result.returncode))
+
+
+def cli_text(*args, timeout=8, session=None):
+    if session is not None and not safe_session(session):
+        raise ValueError(Message("err.sessionName"))
+    binary = herdr_binary()
+    scope = [] if session is None else ["--session=" + session]
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("PAPERCLIP_")}
     try:
         result = subprocess.run(
-            [binary, *args],
+            [binary, *scope, *args],
             env=env,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
-            encoding="utf-8",
+            encoding="utf-8-sig",
             errors="replace",
             timeout=timeout,
-            check=True,
         )
-        return result.stdout
-    except (OSError, subprocess.SubprocessError):
-        raise RuntimeError(Message("err.herdrCli")) from None
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(Message("err.herdrTimeout")) from None
+    except PermissionError:
+        raise RuntimeError(Message("err.herdrAccess")) from None
+    except OSError:
+        raise RuntimeError(Message("err.herdrStart")) from None
+    if result.returncode:
+        raise RuntimeError(_cli_failure(result))
+    return result.stdout
 
 
-def herdr(*args, timeout=8):
+def herdr(*args, timeout=8, session=None):
+    response = cli_text(*args, timeout=timeout, session=session)
     try:
-        payload = json.loads(cli_text(*args, timeout=timeout))["result"]
+        payload = json.loads(response)["result"]
         if not isinstance(payload, dict):
             raise ValueError
         return payload
@@ -46,12 +111,30 @@ def herdr(*args, timeout=8):
         raise RuntimeError(Message("err.herdrJson")) from None
 
 
+def live_sessions():
+    # session list is local metadata (no server required). Unlike agent list,
+    # it returns a top-level sessions array, not an API {result: ...} envelope.
+    try:
+        rows = json.loads(cli_text("session", "list", "--json"))["sessions"]
+        if not isinstance(rows, list) or not all(
+            isinstance(r, dict) and safe_session(r.get("name")) and isinstance(r.get("running"), bool)
+            for r in rows
+        ):
+            raise ValueError
+        return [
+            {"name": r["name"], "running": r["running"], "unreachable": bool(r.get("connection_error"))}
+            for r in rows
+        ]
+    except (TypeError, KeyError, ValueError):
+        raise RuntimeError(Message("err.sessionList")) from None
+
+
 def safe_target(value):
     return isinstance(value, str) and re.fullmatch(r"[\w][\w.:-]{0,119}", value) is not None
 
 
-def live_targets():
-    records = herdr("agent", "list").get("agents")
+def live_targets(session=None):
+    records = herdr("agent", "list", session=session).get("agents")
     if not isinstance(records, list):
         raise RuntimeError(Message("err.herdrList"))
     targets = []
@@ -83,10 +166,10 @@ def live_targets():
     return targets
 
 
-def bound_agent(target, terminal, kind):
+def bound_agent(target, terminal, kind, session=None):
     if not safe_target(target):
         raise ValueError(Message("err.target"))
-    info = herdr("agent", "get", target).get("agent")
+    info = herdr("agent", "get", target, session=session).get("agent")
     if (
         not isinstance(info, dict)
         or not info.get("terminal_id")
@@ -145,7 +228,7 @@ def select_work(board, company, agent, run_id):
     return None
 
 
-def run(target, terminal, kind):
+def run(target, terminal, kind, session=None):
     if not safe_target(target):
         raise ValueError(Message("err.target"))
     company, agent, run_id, url, key = (
@@ -160,7 +243,7 @@ def run(target, terminal, kind):
         print("No assigned ready task.")
         return
     path = "/api/issues/" + quote(issue["id"], safe="")
-    info = bound_agent(target, terminal, kind)
+    info = bound_agent(target, terminal, kind, session)
     if info.get("agent_status") not in ("idle", "done") or info.get("interactive_ready") is not True:
         raise RuntimeError("Herdr target is not idle and ready. No prompt sent.")
     if issue["status"] == "todo":
@@ -187,9 +270,9 @@ def run(target, terminal, kind):
     text = re.sub(r"[\x00-\x1f\x7f-\x9f]+", " ", text)[:12000]
     # A blocked, timed out or vanished agent never marks an issue successful.
     try:
-        end = herdr("agent", "prompt", target, text, "--wait", "--timeout", "1800000", timeout=1810).get(
-            "agent"
-        )
+        end = herdr(
+            "agent", "prompt", target, text, "--wait", "--timeout", "1800000", timeout=1810, session=session
+        ).get("agent")
     except RuntimeError as exc:
         raise RuntimeError("Delivery outcome unknown. Inspect the terminal before retrying.") from exc
     if (
@@ -213,7 +296,7 @@ if __name__ == "__main__":
     try:
         if sys.argv[1:] == ["manual"]:
             print("Manual agent: copy the assigned task from the desk into your running CLI. No prompt sent.")
-        elif len(sys.argv) == 5 and sys.argv[1] == "agent":
+        elif len(sys.argv) in (5, 6) and sys.argv[1] == "agent":
             run(*sys.argv[2:])
         else:
             raise ValueError("Invalid worker configuration")

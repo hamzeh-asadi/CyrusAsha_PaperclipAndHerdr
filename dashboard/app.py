@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 from desk_text import Message, error_detail, preferred_language
 from paperclip_client import PaperclipError, PaperclipConnectionError, is_loopback, request_json
-from herdr_worker import bound_agent, cli_text, safe_target
+from herdr_worker import bound_agent, cli_text, live_sessions, safe_session, safe_target
 import team_desk as desk
 
 ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -123,7 +123,12 @@ def company_collection(collection: str) -> list:
 def list_agents_from_paperclip() -> Dict[str, Any]:
     company = resolve_company()
     rows = desk.roster(paperclip_json, company["id"])
-    return {"agents": [desk.agent_summary(a) for a in rows], "paperclip_online": True,
+    summaries = [desk.agent_summary(a) for a in rows]
+    mapping = parse_agent_map(HERDR_AGENT_MAP)
+    for member in summaries:
+        if mapping and mapped_output(member, mapping):
+            member['hasOutputMapping'] = True
+    return {"agents": summaries, "paperclip_online": True,
             "company": {"id": company["id"], "name": company.get("name", ""), "issuePrefix": company.get("issuePrefix")}}
 
 
@@ -187,6 +192,14 @@ def _name_candidates(name: Optional[str]) -> set:
     return {value for value in (normalized, root) if value}
 
 
+def mapped_output(record, mapping):
+    names = _name_candidates(record.get('name'))
+    for key in [_normalize_agent_key(record['id']), *sorted(names, key=len, reverse=True)]:
+        if key in mapping:
+            return mapping[key]
+    return None
+
+
 def output_target(record):
     """Desk members only expose the chosen agent. Legacy maps are for reading, never dispatch."""
     link = desk.connection(record)
@@ -194,18 +207,18 @@ def output_target(record):
         if link['mode'] == 'manual':
             raise PaperclipError(Message("err.manualOutput"), 409)
         binding = record['metadata']['herdrDesk']
-        bound_agent(link['target'], binding.get('terminal'), binding.get('kind'))
-        return link['target']
-    mapping = parse_agent_map(HERDR_AGENT_MAP)
+        bound_agent(link['target'], binding.get('terminal'), binding.get('kind'), link.get('session'))
+        return link['target'], link.get('session')
+    if mapped := mapped_output(record, parse_agent_map(HERDR_AGENT_MAP)):
+        return mapped, None
+    if record.get('adapterType') in ('hermes_local', 'hermes_gateway'):
+        raise PaperclipError(Message("err.hermesOutput"), 409)
     names = _name_candidates(record.get('name'))
-    for key in [_normalize_agent_key(record['id']), *sorted(names, key=len, reverse=True)]:
-        if key in mapping:
-            return mapping[key]
     live = list_herdr_agents()
     matches = {row['target'] for row in live if names & _name_candidates(row.get('name'))
                or record['id'] in (row['target'], row.get('pane_id'))}
     if len(matches) == 1:
-        return matches.pop()
+        return matches.pop(), None
     raise PaperclipError(Message("err.outputMap"), 409)
 
 
@@ -259,12 +272,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path in STATIC_TYPES:
             self.send_asset(parsed.path[1:], STATIC_TYPES[parsed.path])
             return
-        if parsed.path == '/api/herdr/targets':
+        if parsed.path in ('/api/herdr/targets', '/api/herdr/sessions'):
             if not self.is_local_operator():
                 self.send_error_json(Message("err.localTargets"), 403)
                 return
             try:
-                self.send_json({'targets': desk.live_targets()})
+                if parsed.path.endswith('/sessions'):
+                    self.send_json({'sessions': live_sessions()})
+                else:
+                    params = parse_qs(parsed.query, keep_blank_values=True)
+                    names = params.get('session', [None])
+                    if len(names) != 1 or (names[0] is not None and not safe_session(names[0])):
+                        self.send_error_json(Message("err.sessionName"), 400)
+                        return
+                    self.send_json({'targets': desk.live_targets(names[0])})
             except (ValueError, TypeError, RuntimeError) as exc:
                 self.send_error_json(exc, 503)
             return
@@ -391,6 +412,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             raise PaperclipError(Message("err.agent"), 404)
         if (agent.get('connection') or {}).get('mode') == 'manual':
             raise PaperclipError(Message("err.manualWake"), 409)
+        if agent.get('assignable') is False:
+            raise PaperclipError(Message("err.notReady"), 409)
         resp = paperclip_json(f"/api/agents/{quote(agent_id, safe='')}/heartbeat/invoke", method="POST")
         return {"agent_id": agent_id, "status": "triggered", "response": {k: resp.get(k) for k in ("id", "status")} if isinstance(resp, dict) else {}}
 
@@ -427,10 +450,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             source = query.get('source', ['recent-unwrapped'])[0]
             if not lines.isdecimal() or len(lines) > 3 or not 1 <= int(lines) <= 200 or source not in ('recent-unwrapped', 'visible'):
                 raise PaperclipError(Message("err.outputArgs"), 400)
-            target = output_target(member)
+            target, session = output_target(member)
             if not safe_target(target):
                 raise PaperclipError(Message("err.target"), 400)
-            output = cli_text('agent', 'read', target, f'--source={source}', f'--lines={lines}')
+            output = cli_text('agent', 'read', target, f'--source={source}', f'--lines={lines}',
+                              session=session)
             self.send_json({'agent_id': agent_id, 'herdr_agent_name': target, 'output': output, 'success': True})
         except PaperclipError as exc:
             self.send_error_json(exc, exc.status)

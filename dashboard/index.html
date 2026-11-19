@@ -129,6 +129,7 @@
                 ><select id="parent">
                   <option value="">+ ساخت کار اصلی جدید</option>
                 </select>
+                <div id="parentWarning" class="message warn" hidden></div>
                 <label id="titleLabel" class="field"
                   ><span data-i18n="plan.title">عنوان کار جدید</span
                   ><input
@@ -227,11 +228,18 @@
                 <div id="targetFields" hidden>
                   <label class="field"
                     ><span data-i18n="team.session">نشست زندهٔ Herdr</span
+                    ><select id="namespace" dir="auto"></select
+                  ></label>
+                  <label class="field"
+                    ><span data-i18n="team.sessionAgent">ایجنت شناسایی‌شده در این نشست</span
                     ><select id="target" dir="auto">
-                      <option value="">انتخاب نشست…</option>
+                      <option value="">انتخاب ایجنت شناسایی‌شده…</option>
                     </select></label
                   ><button type="button" id="scan" class="link" data-i18n="team.scan">↻ یافتن نشست‌ها</button>
                   <p id="targetHint" class="hint" role="status"></p>
+                  <button id="useManual" type="button" class="link" data-i18n="team.useManual" hidden>
+                    ادامه با تحویل دستی
+                  </button>
                 </div>
                 <button type="submit" class="primary wide" id="enroll" data-i18n="team.register" disabled>
                   ثبت در شرکت

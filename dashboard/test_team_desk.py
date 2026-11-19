@@ -18,7 +18,9 @@ from test_apis import serving
 class Board:
     def __init__(self):
         self.company = "c1"
-        self.members = [{"id": v, "name": v, "status": "idle", "companyId": "c1"} for v in ["Freebuff", "agy"]]
+        self.members = [
+            {"id": v, "name": v, "status": "idle", "companyId": "c1"} for v in ["Freebuff", "agy"]
+        ]
         self.issues, self.by_key, self.writes = {}, {}, []
         self.fail_title = None
 
@@ -57,6 +59,13 @@ class Board:
 class DeskTests(unittest.TestCase):
     def setUp(self):
         self.board = Board()
+        inventory = patch.object(
+            desk,
+            "live_sessions",
+            return_value=[{"name": n, "running": True} for n in ("studio", "one", "two")],
+        )
+        self.inventory = inventory.start()
+        self.addCleanup(inventory.stop)
         self.plan = {
             "companyId": "c1",
             "requestId": str(uuid.uuid4()),
@@ -114,19 +123,36 @@ class DeskTests(unittest.TestCase):
         self.assertFalse(self.board.writes)
 
     def test_enrollment_uses_fixed_process_and_respects_approval(self):
-        data = dict(name="My AGY", mode="agent", target="agy-worker", kind="agy", terminal="", companyId="c1")
-        with patch.object(
-            desk, "live_targets", return_value=[{"kind": "agy", "target": "agy-worker", "terminal": ""}]
+        data = dict(
+            name="My AGY",
+            mode="agent",
+            target="agy-worker",
+            kind="agy",
+            terminal="",
+            session="studio",
+            companyId="c1",
+        )
+        with (
+            patch.object(desk, "herdr_binary", return_value="test-cli"),
+            patch.object(
+                desk, "live_targets", return_value=[{"kind": "agy", "target": "agy-worker", "terminal": ""}]
+            ) as discovery,
         ):
             r = desk.enroll(self.board, "c1", data)
+            discovery.assert_called_once_with("studio")
             self.assertTrue(r["needsApproval"])
             self.assertEqual(r["agent"]["status"], "pending_approval")
             self.assertNotIn("adapterConfig", r["agent"])
             self.assertTrue(desk.enroll(self.board, "c1", data)["existing"])
             for bad in (
                 dict(data, command="no"),
+                dict(data, HERDR_DESK_EXE="no"),
+                dict(data, session="../no"),
+                dict(data, session=None),
+                dict(data, session="other"),
                 dict(data, name="another"),
                 dict(data, name="new", target="missing"),
+                dict(data, name="new", session="Studio"),
                 dict(data, mode="manual", target=""),
                 dict(data, name="new", terminal="old-terminal"),
             ):
@@ -137,19 +163,63 @@ class DeskTests(unittest.TestCase):
         self.assertEqual(route, "/api/companies/c1/agent-hires")
         self.assertEqual(hire["adapterConfig"]["command"], sys.executable)
         self.assertEqual(
-            hire["adapterConfig"]["args"], ["-E", "-s", str(desk.WORKER), "agent", "agy-worker", "", "agy"]
+            hire["adapterConfig"]["args"],
+            ["-E", "-s", str(desk.WORKER), "agent", "agy-worker", "", "agy", "studio"],
         )
         self.assertEqual(hire["runtimeConfig"]["heartbeat"]["maxConcurrentRuns"], 1)
+        self.assertEqual(hire["adapterConfig"]["env"], {"HERDR_DESK_EXE": "test-cli"})
+        self.assertEqual(hire["metadata"]["herdrDesk"]["session"], "studio")
+
+    def test_same_target_different_sessions_and_legacy_unscoped_collision(self):
+        data = dict(name="New worker", mode="agent", target="w1:p1", terminal="t", kind="agy", session="two")
+        old = dict(mode="agent", target="w1:p1", terminal="t", kind="agy")
+        self.board.members[0]["metadata"] = {"herdrDesk": old}
+        with (
+            patch.object(desk, "herdr_binary", return_value="test-cli"),
+            patch.object(desk, "live_targets", return_value=[old]) as scan,
+        ):
+            with self.assertRaisesRegex(PaperclipError, "already linked"):
+                desk.enroll(self.board, "c1", data)
+            scan.assert_not_called()
+            old["session"] = "one"
+            desk.enroll(self.board, "c1", data)
+            scan.assert_called_once_with("two")
+        self.assertEqual(self.board.writes[0][2]["metadata"]["herdrDesk"]["session"], "two")
+
+    def test_idle_but_not_verified_cannot_be_assigned_or_released(self):
+        member = self.board.members[0]
+        member.update(adapterType="hermes_local", lifecycleState="verifying", lifecycleError="private")
+        self.board.issues["i"] = dict(id="i", companyId="c1", assigneeAgentId=member["id"], status="backlog")
+        summary = desk.agent_summary(member)
+        self.assertTrue(summary["verificationFailed"])
+        self.assertFalse(summary["assignable"])
+        self.assertNotIn("private", str(summary))
+        with self.assertRaises(PaperclipError):
+            desk.save_plan(self.board, "c1", self.plan)
+        with self.assertRaises(PaperclipError):
+            desk.advance(self.board, "c1", dict(action="release", issueId="i", assigneeAgentId=member["id"]))
+        self.assertFalse(self.board.writes)
+        self.assertTrue(desk.eligible(dict(member, lifecycleState="ready")))
 
     def test_pane_replacement_and_closed_parent_are_rejected_before_writes(self):
-        with patch.object(
-            desk, "live_targets", return_value=[{"target": "w1:p1", "terminal": "new", "kind": "agy"}]
+        with (
+            patch.object(desk, "herdr_binary", return_value="test-cli"),
+            patch.object(
+                desk, "live_targets", return_value=[{"target": "w1:p1", "terminal": "new", "kind": "agy"}]
+            ),
         ):
             with self.assertRaises(PaperclipError):
                 desk.enroll(
                     self.board,
                     "c1",
-                    dict(name="Engine", mode="agent", target="w1:p1", terminal="old", kind="agy"),
+                    dict(
+                        name="Engine",
+                        mode="agent",
+                        target="w1:p1",
+                        terminal="old",
+                        kind="agy",
+                        session="studio",
+                    ),
                 )
         self.board.issues["closed"] = {"id": "closed", "status": "done", "companyId": "c1"}
         with self.assertRaises(PaperclipError):
@@ -160,6 +230,7 @@ class DeskTests(unittest.TestCase):
         with patch.object(desk, "live_targets", side_effect=AssertionError("manual must not call Herdr")):
             r = desk.enroll(self.board, "c1", {"name": "manual tester", "mode": "manual", "companyId": "c1"})
         _, _, hire = self.board.writes[-1]
+        self.inventory.assert_not_called()
         self.assertFalse(hire["runtimeConfig"]["heartbeat"]["wakeOnDemand"])
         self.assertEqual(hire["adapterConfig"]["args"][-1], "manual")
         agent = r["agent"]["id"]

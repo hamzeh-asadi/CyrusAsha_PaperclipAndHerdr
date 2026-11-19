@@ -99,17 +99,108 @@ class DashboardTests(unittest.TestCase):
     def test_scoped_gets_and_post_use_the_configured_key_server_side(self):
         self.upstream.routes.update({
             ("GET", "/api/companies/c2"): (200, {"id": "c2"}),
-            ("GET", "/api/companies/c2/agents"): (200, [{"id": "worker"}]),
+            ("GET", "/api/companies/c2/agents"): (200, [{"id": "worker", "status": "idle"}]),
             ("GET", "/api/companies/c2/issues?status=todo&assigneeAgentId=worker"): (200, [{"id": "t1"}]),
             ("POST", "/api/agents/worker/heartbeat/invoke"): (202, {"id": "run"}),
         })
         with patch.object(app, "COMPANY_ID", "c2"), patch.object(app, "PAPERCLIP_API_KEY", "test-only"):
-            self.assertEqual(self.request("/api/agents")[1]["agents"], [{"id": "worker"}])
+            self.assertEqual(self.request("/api/agents")[1]["agents"], [{"id": "worker", "status": "idle"}])
             self.assertEqual(self.request("/api/tickets?assigneeAgentId=worker&status=todo")[1]["tickets"], [{"id": "t1"}])
             self.assertEqual(self.request("/api/agents/worker/heartbeat/invoke", "POST")[1]["status"], "triggered")
             self.assertTrue(all(auth == "Bearer test-only" for _, _, auth in self.upstream.requests))
             self.assertEqual(self.request("/health")[1], {"status": "ok", "paperclip": True})
             self.assertEqual(self.upstream.requests[-1], ("GET", "/api/health", None))
+
+    def test_verification_failure_does_not_forward_a_wake_or_expose_config(self):
+        row = dict(
+            id="ceo",
+            name="Hermes-CEO",
+            adapterType="hermes_local",
+            status="idle",
+            lifecycleState="verifying",
+            lifecycleError="private reason",
+            adapterConfig={"private": "no"},
+        )
+        self.upstream.routes.update(
+            {
+                ("GET", "/api/companies"): (200, [{"id": "c"}]),
+                ("GET", "/api/companies/c/agents"): (200, [row]),
+            }
+        )
+        agent = self.request("/api/agents")[1]["agents"][0]
+        self.assertEqual(
+            (agent["lifecycleState"], agent["verificationFailed"], agent["assignable"]),
+            ("verifying", True, False),
+        )
+        self.assertNotIn("private", str(agent))
+        self.assertEqual(self.request("/api/agents/ceo/heartbeat/invoke", "POST")[0], 409)
+        with (
+            patch.object(app, "HERDR_AGENT_MAP", ""),
+            patch.object(app, "list_herdr_agents", side_effect=AssertionError("native Hermes is not Herdr")),
+        ):
+            self.assertEqual(self.request("/api/agents/ceo/output")[1]["i18n"]["key"], "err.hermesOutput")
+        with (
+            patch.object(app, "HERDR_AGENT_MAP", "ceo=explicit"),
+            patch.object(app, "cli_text", return_value="test"),
+        ):
+            self.assertTrue(self.request("/api/agents")[1]["agents"][0]["hasOutputMapping"])
+            self.assertEqual(self.request("/api/agents/ceo/output")[1]["herdr_agent_name"], "explicit")
+        self.assertTrue(all(req[0] == "GET" for req in self.upstream.requests))
+
+    def test_issue_text_is_not_reconstructed_or_reencoded(self):
+        rows = [
+            {"id": str(i), "title": t}
+            for i, t in enumerate(
+                ("????? ??????? ??????? Paperclip+Herdr", "کار فارسی با سؤال؟", "Why?", "\ufffd")
+            )
+        ]
+        self.upstream.routes.update(
+            {
+                ("GET", "/api/companies"): (200, [{"id": "c"}]),
+                ("GET", "/api/companies/c/issues?status=todo"): (200, rows),
+            }
+        )
+        tickets = self.request("/api/tickets?status=todo")[1]["tickets"]
+        self.assertEqual([t["title"] for t in tickets], [t["title"] for t in rows])
+        self.assertEqual(
+            [t.get("titleWarning") for t in tickets],
+            ["literal_question_marks", None, None, "replacement_character"],
+        )
+        self.assertTrue(all(req[0] == "GET" for req in self.upstream.requests))
+
+    def test_session_routes_are_local_and_targets_remain_scoped(self):
+        with (
+            patch.object(app, "live_sessions", return_value=[]) as sessions,
+            patch.object(app.desk, "live_targets", return_value=[]) as targets,
+        ):
+            for path in ("/api/herdr/sessions", "/api/herdr/targets?session=studio"):
+                self.assertEqual(self.request(path, headers={"Host": "remote.example"})[0], 403)
+            sessions.assert_not_called()
+            targets.assert_not_called()
+            self.assertEqual(self.request("/api/herdr/sessions"), (200, {"sessions": []}))
+            sessions.assert_called_once_with()
+            for invalid in ("session=", "session=../bad", "session=one&session=two", "session=%00"):
+                self.assertEqual(self.request("/api/herdr/targets?" + invalid)[0], 400)
+            self.assertEqual(self.request("/api/herdr/targets?session=studio"), (200, {"targets": []}))
+            targets.assert_called_once_with("studio")
+
+    def test_linked_output_checks_and_reads_the_same_session(self):
+        binding = dict(mode="agent", target="w1:p1", kind="agy", terminal="t1", session="two")
+        self.upstream.routes.update(
+            {
+                ("GET", "/api/companies"): (200, [{"id": "c"}]),
+                ("GET", "/api/companies/c/agents"): (200, [{"id": "a", "metadata": {"herdrDesk": binding}}]),
+            }
+        )
+        with (
+            patch.object(app, "bound_agent") as check,
+            patch.object(app, "cli_text", return_value="متن") as read,
+        ):
+            self.assertEqual(self.request("/api/agents/a/output")[1]["output"], "متن")
+            check.assert_called_once_with("w1:p1", "t1", "agy", "two")
+            read.assert_called_once_with(
+                "agent", "read", "w1:p1", "--source=recent-unwrapped", "--lines=120", session="two"
+            )
 
     def test_access_error_is_not_a_connection_error(self):
         for code in (401, 403):

@@ -4,6 +4,8 @@ const { t, text, copy } = DeskLocale;
 let members = [],
   issues = [],
   liveTargets = [],
+  sessions = [],
+  targetScope = null,
   company = null,
   local = false,
   online = null;
@@ -16,6 +18,7 @@ let targetListState = "initial",
   outputVersion = 0;
 const inFlight = new Set();
 const eligible = (a) => ["active", "idle", "running"].includes(a.status) && a.assignable !== false;
+const isHermes = (a) => ["hermes_local", "hermes_gateway"].includes(a.adapterType);
 const memberFor = (id) => members.find((a) => a.id === id);
 const ref = (i) => i.identifier || i.id;
 const stateName = (value) =>
@@ -24,7 +27,7 @@ const shortMode = (a) =>
   a.connection?.mode === "manual"
     ? t("team.shortManual")
     : a.connection?.mode === "agent"
-      ? `Herdr · ${a.connection.target}`
+      ? ["Herdr", a.connection.session, a.connection.target].filter(Boolean).join(" · ")
       : a.adapterType || "Paperclip";
 function el(tag, cls, value) {
   const n = document.createElement(tag);
@@ -184,7 +187,7 @@ function render() {
   const parentWas = $("parent").value;
   options(
     $("parent"),
-    issues.map((i) => [i.id, `${ref(i)} · ${i.title}`]),
+    issues.map((i) => [i.id, `${ref(i)} · ${i.titleWarning ? t("work.checkTitle") + " · " : ""}${i.title}`]),
     t("plan.newParent"),
   );
   if (parentWas && !$("parent").value && !pendingPlan) message("planFeedback", copy("msg.parentGone"), true);
@@ -198,7 +201,7 @@ function render() {
   );
   $("savePlan").textContent = t(pendingPlan && !saving ? "msg.retry" : "plan.save");
   $("savePlan").disabled = saving || !local || (!pendingPlan && !choices.length);
-  $("enroll").disabled = teamBusy || !local;
+  updateEnroll();
   renderTeam();
   renderTasks();
 }
@@ -206,6 +209,15 @@ function syncParent() {
   const existing = !!$("parent").value;
   $("titleLabel").hidden = existing;
   $("planTitle").required = !existing;
+  const issue = issues.find((i) => i.id === $("parent").value);
+  const warning = $("parentWarning");
+  warning.hidden = !issue?.titleWarning;
+  warning.replaceChildren();
+  if (issue?.titleWarning) {
+    warning.append(t("work.titleWarning", { id: ref(issue) }));
+    if (company?.boardUrl)
+      warning.append(" ", boardLink("work.editTitle", "issues/" + encodeURIComponent(ref(issue))));
+  }
 }
 function numberSteps() {
   [...$("steps").children].forEach(
@@ -300,33 +312,72 @@ async function savePlan(event) {
     await refresh();
   }
 }
+function updateEnroll() {
+  const unselected =
+    $("mode").value === "agent" && (scanning || !$("target").value || targetScope !== $("namespace").value);
+  $("enroll").disabled = teamBusy || !local || unselected;
+}
 function renderMode() {
   const live = $("mode").value === "agent";
   $("targetFields").hidden = !live;
-  $("target").required = live;
+  $("target").required = $("namespace").required = live;
   $("modeHint").textContent = t(live ? "team.linkedHint" : "team.manualHint");
   options(
-    $("target"),
-    liveTargets.map((s) => [s.target, `${s.target} · ${s.kind || "Herdr"} · ${stateName(s.status)}`]),
-    t(targetListState === "failed" ? "team.noSession" : "team.selectSession"),
+    $("namespace"),
+    sessions.map((s) => [s.name, s.name]),
+    t("team.selectSession"),
   );
+  options(
+    $("target"),
+    liveTargets.map((s) => [s.target, `${s.target} · ${s.kind} · ${stateName(s.status)}`]),
+    t("team.selectAgent"),
+  );
+  $("namespace").disabled = scanning || !sessions.length;
+  $("target").disabled = scanning || !liveTargets.length;
+  $("useManual").hidden = scanning || !["failed", "empty"].includes(targetListState);
+  updateEnroll();
 }
 function modeChanged() {
   renderMode();
   if ($("mode").value === "agent" && local) scan();
 }
-async function scan() {
+async function scan(refreshSessions = true) {
   if (scanning || !local) return;
   scanning = true;
   $("scan").disabled = true;
+  liveTargets = [];
+  targetScope = null;
+  renderMode();
   bind("targetHint", copy("team.scanning"));
   try {
-    const { targets } = await api("/api/herdr/targets");
-    liveTargets = targets;
-    targetListState = "loaded";
-    bind("targetHint", copy(targets.length ? "team.match" : "team.noDetected"));
+    if (refreshSessions) {
+      const before = $("namespace").value;
+      sessions = [];
+      const data = await api("/api/herdr/sessions");
+      sessions = data.sessions.filter((s) => s.running);
+      renderMode();
+      if (!sessions.length) {
+        targetListState = "empty";
+        bind(
+          "targetHint",
+          copy(data.sessions.some((s) => s.unreachable) ? "err.herdrAccess" : "team.noServer"),
+        );
+        return;
+      }
+      if (!before && sessions.length === 1) $("namespace").value = sessions[0].name;
+    }
+    const session = $("namespace").value;
+    if (!session) {
+      targetListState = "choose";
+      bind("targetHint", copy("team.chooseServer"));
+      return;
+    }
+    const data = await api("/api/herdr/targets?session=" + encodeURIComponent(session));
+    targetScope = session;
+    liveTargets = data.targets;
+    targetListState = liveTargets.length ? "loaded" : "empty";
+    bind("targetHint", copy(liveTargets.length ? "team.match" : "team.noDetected", { session }));
   } catch (e) {
-    liveTargets = [];
     targetListState = "failed";
     bind("targetHint", errorCopy(e));
   } finally {
@@ -346,7 +397,9 @@ async function enroll(event) {
   };
   if (data.mode === "agent") {
     const selected = liveTargets.find((s) => s.target === data.target);
-    if (!selected) return message("enrollFeedback", copy("team.pickAgain"), true);
+    if (!selected || scanning || !targetScope || targetScope !== $("namespace").value)
+      return message("enrollFeedback", copy("team.pickAgain"), true);
+    data.session = targetScope;
     data.kind = selected.kind;
     data.terminal = selected.terminal;
   }
@@ -378,8 +431,15 @@ function renderTeam() {
   for (const a of members) {
     const card = el("article", "member"),
       head = el("div", "section-head");
-    head.append(person(a), status(a.status));
+    const phase = a.verificationFailed
+      ? "verificationFailed"
+      : a.lifecycleState && a.lifecycleState !== "ready"
+        ? a.lifecycleState
+        : a.status;
+    head.append(person(a), status(phase));
     card.append(head);
+    if (a.verificationFailed) card.append(el("p", "message warn", t("team.verifyHint")));
+    if (isHermes(a) && !a.connection) card.append(el("small", "", t("team.nativeHermes")));
     if (a.status === "pending_approval") card.append(el("small", "", t("team.awaiting")));
     const actions = el("div", "task-actions");
     actions.append(
@@ -395,6 +455,8 @@ function renderTeam() {
           ? boardLink("team.approvals", "approvals/pending")
           : boardLink("team.board", "agents/" + encodeURIComponent(a.id)),
       );
+    if (company?.boardUrl && (isHermes(a) || a.verificationFailed))
+      actions.append(boardLink("team.configureTest", "agents/" + encodeURIComponent(a.id) + "/runtime"));
     if (a.connection?.mode !== "manual" && local) {
       const wake = btn(t("team.wake"), () => {
         if (confirm(t("team.confirmWake", { name: a.name })))
@@ -405,10 +467,9 @@ function renderTeam() {
           );
       });
       wake.disabled = !eligible(a) || inFlight.has("wake:" + a.id);
-      actions.append(
-        wake,
-        btn(t("team.output"), () => showOutput(a)),
-      );
+      actions.append(wake);
+      if (!isHermes(a) || a.hasOutputMapping || a.connection?.mode === "agent")
+        actions.append(btn(t("team.output"), () => showOutput(a)));
     }
     card.append(actions);
     grid.append(card);
@@ -518,11 +579,16 @@ function renderTasks() {
       ),
     );
     const actions = el("div", "task-actions");
+    if (i.titleWarning) card.append(el("p", "message warn", t("work.titleWarning", { id: ref(i) })));
     actions.append(btn(t("work.sheet"), () => sheet(i)));
     if (company?.boardUrl)
       actions.append(
         boardLink(
-          i.status === "in_review" ? "work.boardReview" : "work.boardIssue",
+          i.titleWarning
+            ? "work.editTitle"
+            : i.status === "in_review"
+              ? "work.boardReview"
+              : "work.boardIssue",
           "issues/" + encodeURIComponent(ref(i)),
         ),
       );
@@ -599,7 +665,13 @@ async function start() {
     modeChanged();
   };
   $("mode").onchange = modeChanged;
-  $("scan").onclick = scan;
+  $("scan").onclick = () => scan();
+  $("namespace").onchange = () => scan(false);
+  $("target").onchange = updateEnroll;
+  $("useManual").onclick = () => {
+    $("mode").value = "manual";
+    modeChanged();
+  };
   $("enrollForm").onsubmit = enroll;
   $("filter").onchange = renderTasks;
   $("closeDetail").onclick = () => $("detail").close();

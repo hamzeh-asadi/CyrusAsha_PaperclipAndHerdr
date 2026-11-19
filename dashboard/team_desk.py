@@ -1,12 +1,13 @@
 """Company-scoped operations for the local team desk. Paperclip is the sole store."""
 
-from pathlib import Path
+import re
 import sys
 import uuid
+from pathlib import Path
 from urllib.parse import quote
 
 from desk_text import Message, error_detail
-from herdr_worker import live_targets
+from herdr_worker import herdr_binary, live_sessions, live_targets, safe_session
 from paperclip_client import PaperclipError, request_human_review
 
 ASSIGNABLE = ("active", "idle", "running")
@@ -56,38 +57,66 @@ def connection(record):
     meta = record.get("metadata")
     link = meta.get("herdrDesk") if isinstance(meta, dict) else None
     if isinstance(link, dict) and link.get("mode") in ("manual", "agent"):
-        return {"mode": link["mode"], "target": link.get("target", "")}
+        result = {"mode": link["mode"], "target": link.get("target", "")}
+        if link["mode"] == "agent" and "session" in link:
+            result["session"] = link["session"]
+        return result
     return None
 
 
 def eligible(record):
     return (
         record.get("status") in ASSIGNABLE
+        and record.get("lifecycleState", "ready") == "ready"
         and (record.get("orgChainHealth") or {}).get("status") != "invalid_org_chain"
     )
 
 
 def agent_summary(record):
     summary = {k: record[k] for k in AGENT_FIELDS if k in record}
-    if (record.get("orgChainHealth") or {}).get("status") == "invalid_org_chain":
+    if "lifecycleState" in record:
+        summary["lifecycleState"] = record["lifecycleState"]
+        if record["lifecycleState"] == "verifying" and record.get("lifecycleError"):
+            summary["verificationFailed"] = True  # never expose raw errors or configuration
+    if not eligible(record):
         summary["assignable"] = False
     if link := connection(record):
         summary["connection"] = link
     return summary
 
 
+def title_marker(value):
+    """Evidence from decoded API text, not a guess at the missing characters."""
+    if isinstance(value, str):
+        if "\ufffd" in value:
+            return "replacement_character"
+        if re.search(r"(?<!\S)\?{3,}(?!\S)", value):
+            return "literal_question_marks"
+    return None
+
+
 def issue_summary(record):
-    return {k: record[k] for k in ISSUE_FIELDS if k in record}
+    summary = {k: record[k] for k in ISSUE_FIELDS if k in record}
+    if marker := title_marker(record.get("title")):
+        summary["titleWarning"] = marker
+    return summary
 
 
 def enroll(api, company, payload):
-    fields(payload, ("companyId", "name", "mode", "target", "terminal", "kind"))
+    fields(payload, ("companyId", "name", "mode", "target", "terminal", "kind", "session"))
     name = text(payload.get("name"), Message("field.name"), 80)
     mode = payload.get("mode")
     target = text(payload.get("target", ""), Message("field.target"), 120, True)
     if mode not in ("agent", "manual") or (mode == "agent") != bool(target):
         reject(Message("err.handoff"))
     link = {"mode": mode, "target": target}
+    session = payload.get("session")
+    if mode == "agent":
+        if not safe_session(session):
+            reject(Message("err.sessionName"))
+        link["session"] = session
+    elif session is not None:
+        reject(Message("err.fields"))
     expected_kind = text(payload.get("kind", ""), Message("field.kind"), 100, True)
     expected_terminal = text(payload.get("terminal", ""), Message("field.terminal"), 200, True)
     if (mode == "agent" and not expected_kind) or (mode == "manual" and (expected_kind or expected_terminal)):
@@ -109,12 +138,22 @@ def enroll(api, company, payload):
                     )
                 return {"agent": agent_summary(row), "existing": True}
             reject(Message("err.duplicateName"), 409)
-        if mode == "agent" and connection(row) == link:
+        other = connection(row) or {}
+        if (
+            mode == "agent"
+            and other.get("mode") == "agent"
+            and other.get("target") == target
+            and (not other.get("session") or other["session"] == session)
+        ):
             reject(Message("err.duplicateTarget"), 409)
     args = ["-E", "-s", str(WORKER), mode]
     if mode == "agent":
         try:
-            matches = [row for row in live_targets() if row["target"] == target]
+            binary = herdr_binary()
+            # Match the spelling Herdr enumerated, including on case-insensitive Windows.
+            running = {s["name"] for s in live_sessions() if s["running"]}
+            candidates = live_targets(session) if session in running else []
+            matches = [row for row in candidates if row["target"] == target]
         except RuntimeError as exc:
             reject(error_detail(exc), 503)
         if len(matches) != 1 or (matches[0]["terminal"], matches[0]["kind"]) != (
@@ -124,7 +163,7 @@ def enroll(api, company, payload):
             reject(Message("err.staleTarget"), 409)
         binding = matches[0]
         link.update(terminal=binding["terminal"], kind=binding["kind"])
-        args.extend([target, binding["terminal"], binding["kind"]])
+        args.extend([target, binding["terminal"], binding["kind"], session])
     # Paths, command, environment and adapter type are NOT browser inputs.
     config = {
         "name": name,
@@ -141,6 +180,8 @@ def enroll(api, company, payload):
         },
         "metadata": {"herdrDesk": link},
     }
+    if mode == "agent":
+        config["adapterConfig"]["env"] = {"HERDR_DESK_EXE": binary}
     # Preserve the company's hiring/approval policy. Never auto-approve a hire.
     result = api(company_path(company) + "/agent-hires", "POST", data=config)
     if (

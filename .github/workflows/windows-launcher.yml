@@ -7,6 +7,7 @@ on:
       - 'setup-dashboard.*'
       - 'scripts/windows-*.ps1'
       - 'tests/test_windows_*.ps1'
+      - 'tests/smoke_herdr_session.py'
       - 'dashboard/*.py'
       - 'dashboard/*.json'
       - 'dashboard/*.js'
@@ -45,3 +46,15 @@ jobs:
             & $python.Executable -m unittest discover -s dashboard -v
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+      - name: Check discovery with a real isolated Windows Herdr server (no agent)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'herdr-v0.9.5.zip'
+          Invoke-WebRequest 'https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-windows-x86_64.zip' -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne 'd2c6c9c971c43a0bfdde8c692a9a1a7a45c3e4807cd01ae45662b4734fac1cbf') { throw 'Herdr archive digest mismatch' }
+          $dest = Join-Path $env:RUNNER_TEMP 'Herdr release'
+          Expand-Archive -LiteralPath $zip -DestinationPath $dest
+          $binary = (Get-ChildItem $dest -Recurse -File -Filter herdr.exe -ErrorAction Stop).FullName
+          python tests/smoke_herdr_session.py "$binary"
+          exit $LASTEXITCODE
