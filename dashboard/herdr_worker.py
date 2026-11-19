@@ -166,6 +166,11 @@ def live_targets(session=None):
     return targets
 
 
+def prompt_ready(info):
+    """`interactive_ready` is a newer field; older Herdr servers omit it entirely."""
+    return info.get("agent_status") in ("idle", "done") and info.get("interactive_ready") is not False
+
+
 def bound_agent(target, terminal, kind, session=None):
     if not safe_target(target):
         raise ValueError(Message("err.target"))
@@ -244,7 +249,7 @@ def run(target, terminal, kind, session=None):
         return
     path = "/api/issues/" + quote(issue["id"], safe="")
     info = bound_agent(target, terminal, kind, session)
-    if info.get("agent_status") not in ("idle", "done") or info.get("interactive_ready") is not True:
+    if not prompt_ready(info):
         raise RuntimeError("Herdr target is not idle and ready. No prompt sent.")
     if issue["status"] == "todo":
         try:

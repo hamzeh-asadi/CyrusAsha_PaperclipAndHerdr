@@ -283,7 +283,13 @@ class DeskTests(unittest.TestCase):
             id="i", companyId="c1", status="backlog", assigneeAgentId=member["id"], statusVersion=1
         )
         data = {"companyId": "c1", "issueId": "i", "assigneeAgentId": member["id"], "action": "release"}
-        onboarding = {"agent": "agy", "pane_id": "w1:p1", "terminal_id": "t1", "agent_status": "done"}
+        onboarding = {
+            "agent": "agy",
+            "pane_id": "w1:p1",
+            "terminal_id": "t1",
+            "agent_status": "done",
+            "interactive_ready": False,
+        }
         with patch.object(desk, "bound_agent", return_value=onboarding):
             with self.assertRaises(PaperclipError) as cm:
                 desk.advance(self.board, "c1", data)
@@ -292,6 +298,12 @@ class DeskTests(unittest.TestCase):
         self.assertEqual(self.board.issues["i"]["status"], "backlog")
         self.assertFalse(self.board.writes)
         with patch.object(desk, "bound_agent", return_value=dict(onboarding, interactive_ready=True)):
+            self.assertEqual(desk.advance(self.board, "c1", data)["issue"]["status"], "todo")
+        # Older Herdr servers omit interactive_ready; an idle agent is still deliverable.
+        self.board.issues["i"]["status"] = "backlog"
+        with patch.object(
+            desk, "bound_agent", return_value={k: v for k, v in onboarding.items() if k != "interactive_ready"}
+        ):
             self.assertEqual(desk.advance(self.board, "c1", data)["issue"]["status"], "todo")
 
     def test_http_boundaries_and_sanitized_roster(self):

@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from desk_text import Message, error_detail
-from herdr_worker import bound_agent, herdr_binary, live_sessions, live_targets, safe_session
+from herdr_worker import bound_agent, herdr_binary, live_sessions, live_targets, prompt_ready, safe_session
 from paperclip_client import PaperclipError, request_human_review
 
 ASSIGNABLE = ("active", "idle", "running")
@@ -290,10 +290,9 @@ def require_ready_target(member):
         info = bound_agent(target, link.get("terminal", ""), link.get("kind", ""), link.get("session"))
     except (RuntimeError, ValueError):
         reject(Message("err.targetUnavailable", target=target), 409)
-    state = info.get("agent_status")
-    if state not in ("idle", "done") or info.get("interactive_ready") is not True:
+    if not prompt_ready(info):
         # Onboarding, a sign-in screen or a busy turn would block the ticket later.
-        reject(Message("err.targetNotReady", target=target, state=str(state or "unknown")), 409)
+        reject(Message("err.targetNotReady", target=target, state=str(info.get("agent_status") or "unknown")), 409)
 
 
 def advance(api, company, payload):
