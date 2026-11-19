@@ -12,13 +12,14 @@ import subprocess
 import sys
 from urllib.parse import quote, urlencode
 
+from desk_text import Message
 from paperclip_client import PaperclipError, request_json, request_human_review
 
 
 def cli_text(*args, timeout=8):
     binary = shutil.which("herdr.exe" if os.name == "nt" else "herdr")
     if not binary:
-        raise RuntimeError("Herdr در PATH نیست. برای تحویل دستی به آن نیاز ندارید.")
+        raise RuntimeError(Message("err.herdrMissing"))
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("PAPERCLIP_")}
     try:
         result = subprocess.run(
@@ -32,7 +33,7 @@ def cli_text(*args, timeout=8):
         )
         return result.stdout
     except (OSError, subprocess.SubprocessError):
-        raise RuntimeError("Herdr پاسخ معتبر نداد. برنامه و نشست ایجنت را با همان کاربر باز کنید.") from None
+        raise RuntimeError(Message("err.herdrCli")) from None
 
 
 def herdr(*args, timeout=8):
@@ -42,7 +43,7 @@ def herdr(*args, timeout=8):
             raise ValueError
         return payload
     except (TypeError, ValueError, KeyError):
-        raise RuntimeError("پاسخ JSON معتبر از Herdr دریافت نشد.") from None
+        raise RuntimeError(Message("err.herdrJson")) from None
 
 
 def safe_target(value):
@@ -52,7 +53,7 @@ def safe_target(value):
 def live_targets():
     records = herdr("agent", "list").get("agents")
     if not isinstance(records, list):
-        raise RuntimeError("قالب فهرست ایجنت‌های Herdr شناخته نشد.")
+        raise RuntimeError(Message("err.herdrList"))
     targets = []
     for item in records:
         if not isinstance(item, dict):
@@ -84,7 +85,7 @@ def live_targets():
 
 def bound_agent(target, terminal, kind):
     if not safe_target(target):
-        raise ValueError("Invalid Herdr target")
+        raise ValueError(Message("err.target"))
     info = herdr("agent", "get", target).get("agent")
     if (
         not isinstance(info, dict)
@@ -97,7 +98,7 @@ def bound_agent(target, terminal, kind):
             else (info.get("pane_id") != target or info.get("terminal_id") != terminal)
         )
     ):
-        raise RuntimeError("نشست Herdr دیگر با اتصال ثبت‌شده مطابقت ندارد.")
+        raise RuntimeError(Message("err.herdrBinding"))
     return info
 
 
@@ -116,7 +117,10 @@ def select_work(board, company, agent, run_id):
         )
     context = run.get("contextSnapshot") or {}
     task_id = (
-        run.get("issueId") or context.get("issueId") or context.get("taskId") or os.getenv("PAPERCLIP_TASK_ID")
+        run.get("issueId")
+        or context.get("issueId")
+        or context.get("taskId")
+        or os.getenv("PAPERCLIP_TASK_ID")
     )
     if task_id:
         if os.getenv("PAPERCLIP_TASK_ID", task_id) != task_id:
@@ -143,7 +147,7 @@ def select_work(board, company, agent, run_id):
 
 def run(target, terminal, kind):
     if not safe_target(target):
-        raise ValueError("Invalid Herdr target")
+        raise ValueError(Message("err.target"))
     company, agent, run_id, url, key = (
         os.environ["PAPERCLIP_" + name] for name in ("COMPANY_ID", "AGENT_ID", "RUN_ID", "API_URL", "API_KEY")
     )

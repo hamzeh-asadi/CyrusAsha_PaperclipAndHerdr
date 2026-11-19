@@ -8,7 +8,8 @@ Paperclip owns company membership, approvals, assignments, issue hierarchy, run 
 | `team_desk.py` | Whitelisted roster/issue summaries, validated hires, plan creation and explicit status changes through an injected Paperclip client |
 | `paperclip_client.py` | Stateless JSON transport. Caller supplies credentials. No bearer on health, no redirects, no system proxy for loopback. Shared human-review interaction protocol. |
 | `herdr_worker.py` | Fixed `process` adapter entry point and detected-agent CLI helpers. Imports **no dashboard configuration**. No third-party Python packages. |
-| `index.html`, `desk.js`, `desk.css`, `fonts/` | Persian RTL planner/team/work pages with same-origin requests and visible-page polling (5 s). Text rendering, local OFL font; no bundler, CDN, or browser storage. |
+| `index.html`, `desk.js`, `desk.css`, `fonts/`, `brand/` | Bilingual FA/RTL and EN/LTR planner, team and work pages. Same-origin requests and visible-page polling (5 s). Text rendering, local artwork and OFL font; no bundler or CDN. |
+| `strings.json`, `i18n.js`, `desk_text.py` | Shared first-party message catalog, parameter formatting, document language/direction and structured errors. Only `fa` or `en` is stored in browser preferences. Drafts, retry keys, API data and credentials are not persisted by the UI. |
 
 ## Dashboard HTTP contract
 
@@ -25,6 +26,8 @@ All paths are relative to the dashboard, not Paperclip. `/health` is service rea
 | `POST /api/plans` | `companyId, requestId` (UUID), `parentId` or new `title`, `steps` of `{title, description?, assigneeAgentId}`. Returns `parent, children`. |
 | `POST /api/work/advance` | `companyId, issueId, assigneeAgentId, action` (`release` or manual `review`). Rechecks the company, assignee and status. Returns `issue`. |
 | `POST /api/agents/<id>/heartbeat/invoke` | Explicit user wake, company checked; not for a manual member. Ordinary plan/release flow needs no second wake. |
+
+Error responses retain the plain `error` field. Desk-owned errors can also include `i18n: {key, vars}` for re-rendering an existing message after a language change. Raw user content and terminal output are not localized.
 
 Desk POST bodies must be JSON objects, at most 128 KiB, with only the listed fields. All mutations require a loopback peer and Host, and same-origin browser requests; forwarded headers confer no privilege. Read-only network binding is not authentication. Keep the default `127.0.0.1`.
 

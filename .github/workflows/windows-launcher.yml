@@ -8,6 +8,11 @@ on:
       - 'scripts/windows-*.ps1'
       - 'tests/test_windows_*.ps1'
       - 'dashboard/*.py'
+      - 'dashboard/*.json'
+      - 'dashboard/*.js'
+      - 'dashboard/*.html'
+      - 'dashboard/*.css'
+      - 'dashboard/brand/**'
 
 permissions:
   contents: read

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
+from desk_text import Message, error_detail, preferred_language
 from paperclip_client import PaperclipError, PaperclipConnectionError, is_loopback, request_json
 from herdr_worker import bound_agent, cli_text, safe_target
 import team_desk as desk
@@ -69,7 +70,7 @@ def paperclip_health_state(base_url: Optional[str] = None, timeout: float = 3) -
     except PaperclipConnectionError as exc:
         return exc.state
     if not isinstance(data, dict) or data.get("status") not in ("ok", "starting"):
-        raise PaperclipError("Unexpected /api/health response. Check the Paperclip URL and port.")
+        raise PaperclipError(Message("err.health"))
     return data["status"]
 
 
@@ -91,24 +92,19 @@ def resolve_company() -> dict:
                 raise
             company = None
         if not isinstance(company, dict) or company.get("id") != COMPANY_ID:
-            raise PaperclipError(
-                "Unknown PAPERCLIP_COMPANY_ID. Clear or correct it in dashboard/.env and restart the dashboard.", 409
-            )
+            raise PaperclipError(Message("err.unknownCompany"), 409)
         return company
 
     companies = paperclip_json("/api/companies")
     if not isinstance(companies, list):
-        raise PaperclipError("Expected a company list from Paperclip.")
+        raise PaperclipError(Message("err.companyList"))
     if not companies:
-        raise PaperclipError(f"Create a company in Paperclip ({PAPERCLIP_URL}); the dashboard will retry automatically.", 409)
+        raise PaperclipError(Message("err.createCompany", url=PAPERCLIP_URL), 409)
     if len(companies) > 1:
-        raise PaperclipError(
-            "Multiple companies. Choose an id from /api/companies, set PAPERCLIP_COMPANY_ID "
-            "in dashboard/.env and restart the dashboard.", 409
-        )
+        raise PaperclipError(Message("err.chooseCompany"), 409)
     company = companies[0]
     if not isinstance(company, dict) or not isinstance(company.get("id"), str) or not company["id"]:
-        raise PaperclipError("Paperclip returned a company without an id.")
+        raise PaperclipError(Message("err.companyId"))
     return company
 
 
@@ -120,7 +116,7 @@ def company_collection(collection: str) -> list:
     company_id = quote(resolve_company_id(), safe="")
     rows = paperclip_json(f"/api/companies/{company_id}/{collection}")
     if not isinstance(rows, list):
-        raise PaperclipError("Expected a list from the Paperclip API.")
+        raise PaperclipError(Message("err.list"))
     return rows
 
 
@@ -196,7 +192,7 @@ def output_target(record):
     link = desk.connection(record)
     if link:
         if link['mode'] == 'manual':
-            raise PaperclipError('این عضو دستی است؛ خروجی را در خود برنامه ببینید.', 409)
+            raise PaperclipError(Message("err.manualOutput"), 409)
         binding = record['metadata']['herdrDesk']
         bound_agent(link['target'], binding.get('terminal'), binding.get('kind'))
         return link['target']
@@ -210,8 +206,19 @@ def output_target(record):
                or record['id'] in (row['target'], row.get('pane_id'))}
     if len(matches) == 1:
         return matches.pop()
-    raise PaperclipError('هدف یکتایی در Herdr پیدا نشد. برای خروجی این عضو HERDR_AGENT_MAP را تنظیم کنید.', 409)
+    raise PaperclipError(Message("err.outputMap"), 409)
 
+
+# Only these known repository files are served; no generic file-system route.
+STATIC_TYPES = {
+    "/strings.json": "application/json",
+    "/i18n.js": "application/javascript",
+    "/desk.js": "application/javascript",
+    "/desk.css": "text/css",
+    "/brand/desk-mark.png": "image/png",
+    "/fonts/vazirmatn-arabic.woff2": "font/woff2",
+    "/fonts/OFL.txt": "text/plain",
+}
 
 class DashboardHandler(BaseHTTPRequestHandler):
     """HTTP handler exposing dashboard APIs."""
@@ -220,18 +227,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # Disable default logging
         pass
 
-    def send_json(self, data: Any, status: int = 200):
+    def send_json(self, data: Any, status: int = 200, *, lang: Optional[str] = None):
         """Helper to send JSON response."""
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        if lang:
+            self.send_header("Content-Language", lang)
+            self.send_header("Vary", "Accept-Language")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
 
-    def send_error_json(self, message: str, status: int = 500):
+    def send_error_json(self, message, status: int = 500):
         """Helper to send JSON error."""
-        self.send_json({"error": message}, status=status)
+        detail = error_detail(message)
+        if isinstance(detail, Message):
+            lang = preferred_language(self.headers.get("Accept-Language", ""))
+            self.send_json({"error": detail.render(lang), "i18n": detail.wire()}, status, lang=lang)
+        else:
+            self.send_json({"error": str(detail)}, status)
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -239,21 +254,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         # A loopback-only desk must not expose private board reads to rebound hostnames.
         if parsed.path.startswith('/api/') and is_loopback(self.server.server_address[0]) and not self.is_local_operator():
-            self.send_error_json('از آدرس محلی داشبورد استفاده کنید.', 403)
+            self.send_error_json(Message("err.local"), 403)
             return
-        assets = {'/desk.css': 'text/css', '/desk.js': 'application/javascript',
-                  '/fonts/vazirmatn-arabic.woff2': 'font/woff2', '/fonts/OFL.txt': 'text/plain'}
-        if parsed.path in assets:
-            self.send_asset(parsed.path[1:], assets[parsed.path])
+        if parsed.path in STATIC_TYPES:
+            self.send_asset(parsed.path[1:], STATIC_TYPES[parsed.path])
             return
         if parsed.path == '/api/herdr/targets':
             if not self.is_local_operator():
-                self.send_error_json('فهرست نشست‌ها فقط روی همین رایانه در دسترس است.', 403)
+                self.send_error_json(Message("err.localTargets"), 403)
                 return
             try:
                 self.send_json({'targets': desk.live_targets()})
             except (ValueError, TypeError, RuntimeError) as exc:
-                self.send_error_json(str(exc), 503)
+                self.send_error_json(exc, 503)
             return
         # Scan all agents
         if parsed.path == "/api/agents":
@@ -272,7 +285,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/":
             self.send_html_index()
         else:
-            self.send_error_json("Not found", status=404)
+            self.send_error_json(Message("err.notFound"), status=404)
 
     def do_POST(self):
         parsed = urlparse(self.path)
@@ -284,21 +297,21 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if self.headers.get("Sec-Fetch-Site") == "cross-site" or (
             origin and origin.lower() not in (f"http://{host}", f"https://{host}")
         ):
-            self.send_error_json("Cross-origin action denied", status=403)
+            self.send_error_json(Message("err.origin"), status=403)
             return
 
         if not self.is_local_operator():
-            self.send_error_json('برای تغییرات، داشبورد را با آدرس محلی روی رایانهٔ میزبان باز کنید.', 403)
+            self.send_error_json(Message("err.localWrite"), 403)
             return
         if parsed.path in ('/api/team/enroll', '/api/plans', '/api/work/advance'):
             try:
                 data = self.read_json_object()
                 company = resolve_company_id()
                 if data.get('companyId') != company:
-                    raise PaperclipError('شرکت عوض شده است؛ صفحه را تازه کنید.', 409)
+                    raise PaperclipError(Message("err.companyChanged"), 409)
                 if parsed.path == '/api/team/enroll':
                     if not is_loopback(urlparse(PAPERCLIP_URL).hostname or ''):
-                        raise PaperclipError('ثبت ایجنت محلی به Paperclip روی همین رایانه و همان مسیر فایل‌ها نیاز دارد.', 409)
+                        raise PaperclipError(Message("err.localHire"), 409)
                     result = desk.enroll(paperclip_json, company, data)
                 elif parsed.path == '/api/plans':
                     result = desk.save_plan(paperclip_json, company, data)
@@ -306,14 +319,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     result = desk.advance(paperclip_json, company, data)
                 self.send_json(result)
             except PaperclipError as exc:
-                self.send_error_json(str(exc), exc.status)
+                self.send_error_json(exc, exc.status)
             return
         # Trigger heartbeat manually via POST
         if parsed.path.startswith("/api/agents/") and parsed.path.endswith("/heartbeat/invoke"):
             agent_id = parsed.path[len("/api/agents/"):-len("/heartbeat/invoke")]
             self.handle_heartbeat(agent_id, {})
         else:
-            self.send_error_json("Not found", status=404)
+            self.send_error_json(Message("err.notFound"), status=404)
 
     def is_local_operator(self):
         # A DNS-rebound hostname or a network/proxy client is not a local operator.
@@ -326,16 +339,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def read_json_object(self):
         if self.headers.get_content_type() != 'application/json':
-            raise PaperclipError('application/json required', 415)
+            raise PaperclipError(Message("err.media"), 415)
         try:
             size = int(self.headers.get('Content-Length', '0'))
             if not 0 < size <= 128 * 1024:
-                raise PaperclipError('بدنهٔ درخواست خالی یا بیش از حد بزرگ است.', 413)
+                raise PaperclipError(Message("err.size"), 413)
             value = json.loads(self.rfile.read(size).decode('utf-8'))
         except (ValueError, RecursionError):
-            raise PaperclipError('JSON نامعتبر است.', 400) from None
+            raise PaperclipError(Message("err.json"), 400) from None
         if not isinstance(value, dict):
-            raise PaperclipError('JSON object required', 400)
+            raise PaperclipError(Message("err.object"), 400)
         return value
 
     def check_paperclip_online(self) -> bool:
@@ -353,9 +366,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 agents['company']['boardUrl'] = PAPERCLIP_URL + '/' + quote(prefix, safe='')
             self.send_json(agents)
         except PaperclipError as e:
-            self.send_error_json(str(e), status=e.status)
+            self.send_error_json(e, status=e.status)
         except Exception as e:
-            self.send_error_json(str(e), status=500)
+            self.send_error_json(e, status=500)
 
     def list_agents_from_paperclip(self) -> Dict[str, Any]:
         """Delegate to the module-level helper (kept as a method for existing callers)."""
@@ -367,17 +380,17 @@ class DashboardHandler(BaseHTTPRequestHandler):
             result = self.trigger_heartbeat(agent_id)
             self.send_json(result)
         except PaperclipError as e:
-            self.send_error_json(str(e), status=e.status)
+            self.send_error_json(e, status=e.status)
         except Exception as e:
-            self.send_error_json(str(e), status=500)
+            self.send_error_json(e, status=500)
 
     def trigger_heartbeat(self, agent_id: str) -> Dict[str, Any]:
         """Call Paperclip's heartbeat endpoint for the agent."""
         agent = next((a for a in self.list_agents_from_paperclip()['agents'] if a['id'] == agent_id), None)
         if not agent:
-            raise PaperclipError('ایجنت در این شرکت پیدا نشد.', 404)
+            raise PaperclipError(Message("err.agent"), 404)
         if (agent.get('connection') or {}).get('mode') == 'manual':
-            raise PaperclipError('برای ایجنت دستی از کپی برگهٔ کار استفاده کنید.', 409)
+            raise PaperclipError(Message("err.manualWake"), 409)
         resp = paperclip_json(f"/api/agents/{quote(agent_id, safe='')}/heartbeat/invoke", method="POST")
         return {"agent_id": agent_id, "status": "triggered", "response": {k: resp.get(k) for k in ("id", "status")} if isinstance(resp, dict) else {}}
 
@@ -387,9 +400,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             tickets = self.list_tickets_from_paperclip(query)
             self.send_json(tickets)
         except PaperclipError as e:
-            self.send_error_json(str(e), status=e.status)
+            self.send_error_json(e, status=e.status)
         except Exception as e:
-            self.send_error_json(str(e), status=500)
+            self.send_error_json(e, status=500)
 
     def list_tickets_from_paperclip(self, query: Dict[str, list]) -> Dict[str, Any]:
         """Fetch tickets from Paperclip API."""
@@ -404,25 +417,27 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def handle_agent_output(self, agent_id: str, query: Dict[str, list]) -> None:
         """Get recent output for the specified agent from Herdr."""
         if not self.is_local_operator():
-            self.send_error_json('خروجی ترمینال فقط روی همین رایانه در دسترس است.', 403)
+            self.send_error_json(Message("err.localOutput"), 403)
             return
         try:
             member = next((row for row in desk.roster(paperclip_json, resolve_company_id()) if row['id'] == agent_id), None)
             if not member:
-                raise PaperclipError('ایجنت در این شرکت پیدا نشد.', 404)
+                raise PaperclipError(Message("err.agent"), 404)
             lines = query.get('lines', ['120'])[0]
             source = query.get('source', ['recent-unwrapped'])[0]
             if not lines.isdecimal() or len(lines) > 3 or not 1 <= int(lines) <= 200 or source not in ('recent-unwrapped', 'visible'):
-                raise PaperclipError('منبع خروجی یا تعداد خطوط نامعتبر است.', 400)
+                raise PaperclipError(Message("err.outputArgs"), 400)
             target = output_target(member)
             if not safe_target(target):
-                raise PaperclipError('هدف Herdr معتبر نیست.', 400)
+                raise PaperclipError(Message("err.target"), 400)
             output = cli_text('agent', 'read', target, f'--source={source}', f'--lines={lines}')
             self.send_json({'agent_id': agent_id, 'herdr_agent_name': target, 'output': output, 'success': True})
         except PaperclipError as exc:
-            self.send_error_json(str(exc), exc.status)
+            self.send_error_json(exc, exc.status)
+        except ValueError as exc:
+            self.send_error_json(exc, 400)
         except RuntimeError as exc:
-            self.send_error_json(str(exc), 503)
+            self.send_error_json(exc, 503)
 
     def send_html_index(self) -> None:
         """Serve the dashboard HTML."""
@@ -432,7 +447,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # All names come from the fixed route table, never from a request path.
         body = (Path(__file__).parent / name).read_bytes()
         self.send_response(200)
-        self.send_header('Content-Type', mime if mime.startswith('font/') else mime + '; charset=utf-8')
+        self.send_header('Content-Type', mime if mime.startswith(('font/', 'image/')) else mime + '; charset=utf-8')
         self.send_header('Content-Security-Policy', "default-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'")
         self.send_header('Content-Length', str(len(body)))
         self.send_header('X-Content-Type-Options', 'nosniff')

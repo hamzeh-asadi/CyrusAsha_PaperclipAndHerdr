@@ -69,7 +69,7 @@ class DeskTests(unittest.TestCase):
 
     def test_plan_assignments_and_replay_after_partial_failure(self):
         self.board.fail_title = "بازبینی"
-        with self.assertRaisesRegex(PaperclipError, "1 از 2"):
+        with self.assertRaisesRegex(PaperclipError, "1 of 2"):
             desk.save_plan(self.board, "c1", self.plan)
         self.assertEqual(len(self.board.issues), 2)
         self.board.fail_title = None

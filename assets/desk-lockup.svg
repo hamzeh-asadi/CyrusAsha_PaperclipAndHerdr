@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="300" viewBox="0 0 1160 300" role="img" aria-labelledby="title description">
+  <title id="title">CyrusAsha Team Desk · میز کار تیم</title>
+  <desc id="description">The blue and gold CyrusAsha falcon beside the Paperclip × Herdr wordmark and a branching assignment diagram.</desc>
+  <defs>
+    <linearGradient id="sky" x2="1" y2=".5" gradientUnits="objectBoundingBox"><stop stop-color="#173d57"/><stop offset=".46" stop-color="#102c43"/><stop offset="1" stop-color="#0c2033"/></linearGradient>
+    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".85" fill="#92bdcc" opacity=".25"/></pattern>
+    <style>@font-face{font-family:Vazirmatn;src:url(../dashboard/fonts/vazirmatn-arabic.woff2)}.fa{font-family:Vazirmatn,Tahoma,sans-serif}</style>
+  </defs>
+  <rect x="1" y="1" width="1158" height="298" rx="20" fill="url(#sky)" stroke="#2c506a"/>
+  <rect x="1" y="1" width="1158" height="298" rx="20" fill="url(#dots)"/>
+  <path d="M273 42v216M310 192h510" stroke="#92b7c6" opacity=".35"/>
+  <image href="CyrusAsha-Banner.png" x="20" y="32" width="240" height="240"/>
+  <g font-family="Segoe UI,DejaVu Sans,sans-serif"><g fill="#f0cc86" font-size="15" letter-spacing="2.3"><text x="310" y="76">TEAM DESK</text></g><text x="449" y="77" font-size="18" fill="#f0cc86" class="fa">میز کار تیم</text>
+    <text x="307" y="158" font-size="55" letter-spacing="-2.4" fill="#f7fbff" font-weight="700">Paperclip × Herdr</text>
+    <text x="310" y="233" font-size="19" fill="#c9dce8">Plan · Assign · Review</text><text x="818" y="233" direction="rtl" lang="fa" font-size="19" class="fa" fill="#c9dce8">برنامه‌ریزی · واگذاری · بازبینی</text>
+  </g>
+  <g stroke="#77a8bc" stroke-width="2" fill="none"><path d="M919 150h25q13 0 13-13v-36q0-12 12-12h50m-75 61q13 0 13 13v36q0 12 12 12h50m28-122h10q14 0 14 14v31q0 16 14 16h11m-49 61h10q14 0 14-14v-31q0-16 14-16"/>
+    <rect x="878" y="129" width="42" height="42" rx="10" fill="#21425a"/><path d="M888 142h20m-20 7h14m-14 7h10" stroke="#cce3ec" stroke-linecap="round"/>
+    <rect x="1011" y="73" width="36" height="32" rx="7" fill="#17364b"/><path d="m1020 82 5 5-5 5m9 0h8" stroke="#d3eaf2" stroke-linecap="round"/>
+    <rect x="1011" y="195" width="36" height="32" rx="7" fill="#17364b"/><path d="M1021 204h16v15h-16zm4-2h8v4h-8" stroke="#d3eaf2"/>
+    <circle cx="1107" cy="150" r="18" stroke="#e8c989" fill="#e8c989"/><path d="m1099 150 6 6 10-13" stroke="#254156" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

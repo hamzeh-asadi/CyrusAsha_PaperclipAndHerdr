@@ -1,0 +1,914 @@
+{
+  "app.title": {
+    "en": "Team Desk · Paperclip × Herdr",
+    "fa": "میز کار تیم · Paperclip × Herdr"
+  },
+  "app.name": {
+    "en": "Team Desk",
+    "fa": "میز کار تیم"
+  },
+  "app.subtitle": {
+    "en": "Agent workspace",
+    "fa": "فضای کار ایجنت‌ها"
+  },
+  "app.language": {
+    "en": "Interface language",
+    "fa": "زبان رابط کاربری"
+  },
+  "app.refresh": {
+    "en": "Refresh",
+    "fa": "تازه‌سازی"
+  },
+  "app.connecting": {
+    "en": "Connecting…",
+    "fa": "در حال اتصال…"
+  },
+  "app.online": {
+    "en": "Paperclip online",
+    "fa": "Paperclip آنلاین"
+  },
+  "app.offline": {
+    "en": "Paperclip unavailable",
+    "fa": "Paperclip در دسترس نیست"
+  },
+  "app.workspace": {
+    "en": "Workspace",
+    "fa": "فضای کاری"
+  },
+  "app.company": {
+    "en": "Paperclip company",
+    "fa": "شرکت Paperclip"
+  },
+  "nav.label": {
+    "en": "Desk navigation",
+    "fa": "بخش‌های میز کار"
+  },
+  "nav.plan": {
+    "en": "Task planner",
+    "fa": "میز تقسیم کار"
+  },
+  "nav.team": {
+    "en": "Agent team",
+    "fa": "تیم ایجنت‌ها"
+  },
+  "nav.work": {
+    "en": "Company work",
+    "fa": "کارهای شرکت"
+  },
+  "hero.kicker": {
+    "en": "01 / PLANNING DESK",
+    "fa": "۰۱ / میز برنامه‌ریزی"
+  },
+  "hero.title": {
+    "en": "Plan before you run.",
+    "fa": "تقسیم کار، پیش از اجرا"
+  },
+  "hero.body": {
+    "en": "Break a goal into small deliverables. Give each one a clear owner.",
+    "fa": "یک هدف را به خروجی‌های کوچک تقسیم کنید و برای هر خروجی یک مسئول بگذارید."
+  },
+  "hero.map": {
+    "en": "Assignment map",
+    "fa": "نقشهٔ واگذاری"
+  },
+  "plan.kicker": {
+    "en": "WORK PLAN",
+    "fa": "طرح کار"
+  },
+  "plan.heading": {
+    "en": "Build a task plan",
+    "fa": "ساخت زیرکارها"
+  },
+  "plan.badge": {
+    "en": "Saves to Backlog",
+    "fa": "ثبت در Backlog"
+  },
+  "plan.parent": {
+    "en": "Parent issue",
+    "fa": "کار اصلی"
+  },
+  "plan.newParent": {
+    "en": "+ Create a new parent issue",
+    "fa": "+ ساخت کار اصلی جدید"
+  },
+  "plan.title": {
+    "en": "New issue title",
+    "fa": "عنوان کار جدید"
+  },
+  "plan.example": {
+    "en": "e.g. Add search to the customer list",
+    "fa": "مثلاً: افزودن جست‌وجو به فهرست مشتریان"
+  },
+  "plan.steps": {
+    "en": "Subtasks and owners",
+    "fa": "زیرکار و مسئول"
+  },
+  "plan.hint": {
+    "en": "Each row becomes a separate issue in Paperclip.",
+    "fa": "هر ردیف یک تیکت جداگانه در Paperclip می‌شود."
+  },
+  "plan.template": {
+    "en": "Three-step template",
+    "fa": "الگوی سه‌مرحله‌ای"
+  },
+  "plan.add": {
+    "en": "+ Add subtask",
+    "fa": "+ افزودن زیرکار"
+  },
+  "plan.save": {
+    "en": "Save plan to Paperclip",
+    "fa": "ثبت طرح در Paperclip"
+  },
+  "plan.unlock": {
+    "en": "Unlock form",
+    "fa": "آزاد کردن فرم"
+  },
+  "plan.noWake": {
+    "en": "Saving a plan does not wake an agent.",
+    "fa": "ثبت طرح، ایجنت را بیدار نمی‌کند."
+  },
+  "step.number": {
+    "en": "Step {n}",
+    "fa": "مرحلهٔ {n}"
+  },
+  "step.remove": {
+    "en": "Remove",
+    "fa": "حذف"
+  },
+  "step.title": {
+    "en": "Subtask title",
+    "fa": "عنوان زیرکار"
+  },
+  "step.placeholder": {
+    "en": "What should this step deliver?",
+    "fa": "خروجی مشخص این مرحله"
+  },
+  "step.owner": {
+    "en": "Assigned agent",
+    "fa": "ایجنت مسئول"
+  },
+  "step.select": {
+    "en": "Select an owner…",
+    "fa": "انتخاب مسئول…"
+  },
+  "step.notes": {
+    "en": "Description & acceptance criteria (optional)",
+    "fa": "شرح و معیار پذیرش (اختیاری)"
+  },
+  "step.description": {
+    "en": "Subtask description",
+    "fa": "شرح زیرکار"
+  },
+  "side.members": {
+    "en": "COMPANY ROSTER",
+    "fa": "اعضای شرکت"
+  },
+  "side.team": {
+    "en": "Your team",
+    "fa": "تیم این میز"
+  },
+  "side.manage": {
+    "en": "+ Manage agents",
+    "fa": "+ افزودن یا مدیریت ایجنت"
+  },
+  "side.guide": {
+    "en": "SUGGESTED WORKFLOW",
+    "fa": "روال پیشنهادی"
+  },
+  "side.one": {
+    "en": "Set up the team",
+    "fa": "تیم را بچینید"
+  },
+  "side.oneHint": {
+    "en": "Link a Herdr session or use manual handoff.",
+    "fa": "نشست زندهٔ Herdr یا تحویل دستی."
+  },
+  "side.two": {
+    "en": "Save your plan",
+    "fa": "طرح را ثبت کنید"
+  },
+  "side.twoHint": {
+    "en": "Choose an owner for each subtask.",
+    "fa": "مسئول هر زیرکار را خودتان انتخاب می‌کنید."
+  },
+  "side.three": {
+    "en": "Hand off the work",
+    "fa": "کار را تحویل دهید"
+  },
+  "side.threeHint": {
+    "en": "Start ready items under Company work.",
+    "fa": "از «کارهای شرکت»، فقط کار آماده را شروع کنید."
+  },
+  "team.kicker": {
+    "en": "02 / COMPANY ROSTER",
+    "fa": "۰۲ / اعضای شرکت"
+  },
+  "team.intro": {
+    "en": "These are members of your Paperclip company, not a list of installed programs.",
+    "fa": "این‌ها اعضای شرکت شما در Paperclip هستند، نه فهرست برنامه‌های نصب‌شده."
+  },
+  "team.enroll": {
+    "en": "Register an agent",
+    "fa": "ثبت یک ایجنت"
+  },
+  "team.once": {
+    "en": "Once per member",
+    "fa": "یک‌بار برای هر عضو"
+  },
+  "team.preset": {
+    "en": "Preset",
+    "fa": "پیش‌تنظیم"
+  },
+  "team.other": {
+    "en": "Other agent",
+    "fa": "ایجنت دیگر"
+  },
+  "team.name": {
+    "en": "Name in Paperclip",
+    "fa": "نام در Paperclip"
+  },
+  "team.method": {
+    "en": "Handoff method",
+    "fa": "روش تحویل"
+  },
+  "team.manual": {
+    "en": "Manual — copy the work sheet",
+    "fa": "دستی — کپی برگهٔ کار در برنامه"
+  },
+  "team.linked": {
+    "en": "Linked — Herdr session",
+    "fa": "متصل — نشست Herdr"
+  },
+  "team.session": {
+    "en": "Live Herdr session",
+    "fa": "نشست زندهٔ Herdr"
+  },
+  "team.selectSession": {
+    "en": "Select a session…",
+    "fa": "انتخاب نشست…"
+  },
+  "team.scan": {
+    "en": "↻ Find sessions",
+    "fa": "↻ یافتن نشست‌ها"
+  },
+  "team.register": {
+    "en": "Register with company",
+    "fa": "ثبت در شرکت"
+  },
+  "team.roster": {
+    "en": "Registered members",
+    "fa": "اعضای ثبت‌شده"
+  },
+  "team.toPlan": {
+    "en": "Open planner →",
+    "fa": "رفتن به تقسیم کار ←"
+  },
+  "work.kicker": {
+    "en": "03 / ISSUE BOARD",
+    "fa": "۰۳ / تابلوی شرکت"
+  },
+  "work.intro": {
+    "en": "Track each subtask, its parent, owner and current status.",
+    "fa": "مسئول، کار مادر و وضعیت هر زیرکار را اینجا دنبال کنید."
+  },
+  "work.new": {
+    "en": "+ New plan",
+    "fa": "+ طرح جدید"
+  },
+  "work.heading": {
+    "en": "Open work",
+    "fa": "کارهای باز"
+  },
+  "work.owner": {
+    "en": "Owner",
+    "fa": "مسئول"
+  },
+  "work.all": {
+    "en": "All members",
+    "fa": "همهٔ اعضا"
+  },
+  "work.empty": {
+    "en": "No open issues match this view.",
+    "fa": "در این نما کار بازی وجود ندارد."
+  },
+  "work.unassigned": {
+    "en": "Unassigned",
+    "fa": "واگذار نشده"
+  },
+  "work.ownerLine": {
+    "en": "Owner: {name}",
+    "fa": "مسئول: {name}"
+  },
+  "work.parentLine": {
+    "en": "Parent: {name}",
+    "fa": "کار مادر: {name}"
+  },
+  "work.sheet": {
+    "en": "Work sheet",
+    "fa": "برگهٔ کار"
+  },
+  "work.split": {
+    "en": "Split this issue",
+    "fa": "تقسیم این کار"
+  },
+  "work.toReview": {
+    "en": "Ready for review",
+    "fa": "آمادهٔ بازبینی"
+  },
+  "work.startManual": {
+    "en": "Start manually",
+    "fa": "شروع دستی"
+  },
+  "work.release": {
+    "en": "Release to queue",
+    "fa": "ارسال به صف اجرا"
+  },
+  "work.boardReview": {
+    "en": "Review in Paperclip",
+    "fa": "بازبینی در Paperclip"
+  },
+  "work.boardIssue": {
+    "en": "Issue in Paperclip",
+    "fa": "تیکت در Paperclip"
+  },
+  "dialog.close": {
+    "en": "Close",
+    "fa": "بستن"
+  },
+  "dialog.copy": {
+    "en": "Copy text",
+    "fa": "کپی متن"
+  },
+  "dialog.text": {
+    "en": "Work sheet or terminal output",
+    "fa": "متن برگهٔ کار یا خروجی ترمینال"
+  },
+  "dialog.copied": {
+    "en": "Copied.",
+    "fa": "کپی شد."
+  },
+  "dialog.selectCopy": {
+    "en": "Text selected. Press Ctrl+C to copy.",
+    "fa": "متن انتخاب شد؛ Ctrl+C را بزنید."
+  },
+  "dialog.sheet": {
+    "en": "Work handoff sheet",
+    "fa": "برگهٔ تحویل کار"
+  },
+  "dialog.manual": {
+    "en": "Copy this text into the agent application, not a shell prompt.",
+    "fa": "متن را در خودِ برنامهٔ ایجنت (نه خط فرمان شل) بچسبانید."
+  },
+  "dialog.read": {
+    "en": "Issue text for review or manual handoff:",
+    "fa": "متن این تیکت برای بررسی یا تحویل دستی:"
+  },
+  "dialog.parent": {
+    "en": "Parent issue: {name}",
+    "fa": "کار اصلی: {name}"
+  },
+  "dialog.output": {
+    "en": "Recent Herdr output",
+    "fa": "خروجی اخیر Herdr"
+  },
+  "dialog.loading": {
+    "en": "Reading…",
+    "fa": "در حال خواندن…"
+  },
+  "dialog.empty": {
+    "en": "No output yet.",
+    "fa": "خروجی خالی است."
+  },
+  "dialog.unavailable": {
+    "en": "Output unavailable.",
+    "fa": "خروجی در دسترس نیست."
+  },
+  "state.backlog": {
+    "en": "Backlog",
+    "fa": "در صف برنامه‌ریزی"
+  },
+  "state.todo": {
+    "en": "Ready",
+    "fa": "آمادهٔ اجرا"
+  },
+  "state.in_progress": {
+    "en": "In progress",
+    "fa": "در حال انجام"
+  },
+  "state.in_review": {
+    "en": "In review",
+    "fa": "در بازبینی"
+  },
+  "state.blocked": {
+    "en": "Blocked",
+    "fa": "متوقف"
+  },
+  "state.done": {
+    "en": "Done",
+    "fa": "پایان‌یافته"
+  },
+  "state.cancelled": {
+    "en": "Cancelled",
+    "fa": "لغو"
+  },
+  "state.idle": {
+    "en": "Idle",
+    "fa": "آزاد"
+  },
+  "state.active": {
+    "en": "Active",
+    "fa": "فعال"
+  },
+  "state.running": {
+    "en": "Running",
+    "fa": "در حال اجرا"
+  },
+  "state.working": {
+    "en": "Working",
+    "fa": "مشغول"
+  },
+  "state.pending_approval": {
+    "en": "Pending approval",
+    "fa": "منتظر تأیید"
+  },
+  "state.paused": {
+    "en": "Paused",
+    "fa": "مکث"
+  },
+  "state.terminated": {
+    "en": "Terminated",
+    "fa": "خاتمه‌یافته"
+  },
+  "state.error": {
+    "en": "Run error",
+    "fa": "خطای اجرا"
+  },
+  "state.unknown": {
+    "en": "Unknown",
+    "fa": "نامشخص"
+  },
+  "msg.offline": {
+    "en": "Paperclip is not ready. Check the npm start terminal.",
+    "fa": "Paperclip آماده نیست؛ پنجرهٔ npm start را بررسی کنید."
+  },
+  "msg.readOnly": {
+    "en": "Read-only view. To manage work, open the local dashboard on its host computer.",
+    "fa": "حالت فقط‌خواندنی. برای مدیریت، داشبورد را روی رایانهٔ میزبان با آدرس محلی باز کنید."
+  },
+  "msg.firstMember": {
+    "en": "Register your first member under Agent team.",
+    "fa": "اولین عضو را در «تیم ایجنت‌ها» ثبت کنید."
+  },
+  "msg.parentGone": {
+    "en": "That issue is no longer open. Check the selected parent.",
+    "fa": "کار انتخابی دیگر در فهرست باز نیست. کار اصلی را دوباره بررسی کنید."
+  },
+  "msg.maxSteps": {
+    "en": "A plan can have up to 20 subtasks.",
+    "fa": "حداکثر ۲۰ زیرکار در هر طرح."
+  },
+  "msg.needParent": {
+    "en": "Enter a parent title or select an existing issue first.",
+    "fa": "ابتدا عنوان کار اصلی را بنویسید یا یک کار موجود را انتخاب کنید."
+  },
+  "msg.templateFull": {
+    "en": "Not enough room for three more subtasks.",
+    "fa": "برای الگوی سه‌مرحله‌ای جا نیست."
+  },
+  "template.define": {
+    "en": "Define requirements and acceptance criteria",
+    "fa": "تعریف نیاز و معیار پذیرش"
+  },
+  "template.build": {
+    "en": "Implement the change",
+    "fa": "پیاده‌سازی تغییر"
+  },
+  "template.test": {
+    "en": "Test and report the result",
+    "fa": "آزمون و گزارش نتیجه"
+  },
+  "msg.template": {
+    "en": "Edit these suggested titles and choose an owner for each row.",
+    "fa": "این یک الگوی قابل ویرایش است. عنوان‌ها را متناسب با کار تغییر دهید و مسئول هر ردیف را انتخاب کنید."
+  },
+  "msg.saving": {
+    "en": "Saving to Paperclip…",
+    "fa": "در حال ثبت در Paperclip…"
+  },
+  "msg.saved": {
+    "en": "Saved {id} and its subtasks ({count}) in Paperclip. Nothing has been started.",
+    "fa": "کار اصلی {id} و {count} زیرکار در Paperclip ثبت شدند. هنوز هیچ کاری اجرا نشده است."
+  },
+  "msg.viewWork": {
+    "en": "View work →",
+    "fa": "دیدن کارها ←"
+  },
+  "msg.retryHelp": {
+    "en": "Retry continues this exact request. Check saved issues before changing the plan.",
+    "fa": "تلاش مجدد همین درخواست را ادامه می‌دهد. پیش از تغییر طرح، کارهای ثبت‌شده را بررسی کنید."
+  },
+  "msg.retry": {
+    "en": "Retry this plan",
+    "fa": "تلاش مجدد همین طرح"
+  },
+  "msg.unlockConfirm": {
+    "en": "Some rows may already be saved. Have you checked them before starting a new request?",
+    "fa": "ممکن است بعضی ردیف‌ها ثبت شده باشند. قبل از ارسال یک طرح جدید، آن‌ها را بررسی کرده‌اید؟"
+  },
+  "msg.unlocked": {
+    "en": "Form unlocked. To continue a saved issue, select it as the parent.",
+    "fa": "فرم آزاد شد. برای ادامهٔ یک کار ثبت‌شده، آن را به عنوان کار اصلی انتخاب کنید."
+  },
+  "team.manualHint": {
+    "en": "Open the agent (e.g. Freebuff) and paste its work sheet there. The desk sends no keystrokes.",
+    "fa": "برنامهٔ ایجنت، مثلاً Freebuff، را باز کنید و برگهٔ کار را آنجا بچسبانید. میز کار هیچ کلیدی به پنجره نمی‌فرستد."
+  },
+  "team.linkedHint": {
+    "en": "Start the agent inside Herdr (agy for Antigravity). Select a detected session. The desk does not install or launch programs.",
+    "fa": "ایجنت را داخل Herdr اجرا کنید (برای Antigravity، دستور agy). فقط نشست شناخته‌شده را انتخاب کنید؛ میز کار برنامه‌ای نصب یا اجرا نمی‌کند."
+  },
+  "team.shortManual": {
+    "en": "Manual handoff",
+    "fa": "تحویل دستی"
+  },
+  "team.scanning": {
+    "en": "Reading live sessions…",
+    "fa": "در حال خواندن نشست‌ها…"
+  },
+  "team.match": {
+    "en": "Choose the session for this member.",
+    "fa": "نشست متعلق به همین عضو را انتخاب کنید."
+  },
+  "team.noDetected": {
+    "en": "No detected sessions. Start the CLI and rescan, or choose manual handoff.",
+    "fa": "نشست شناخته‌شده‌ای پیدا نشد. بعد از اجرای CLI دوباره جست‌وجو کنید یا تحویل دستی را برگزینید."
+  },
+  "team.noSession": {
+    "en": "No sessions",
+    "fa": "بدون نشست"
+  },
+  "team.pickAgain": {
+    "en": "Select the live session again.",
+    "fa": "نشست زنده را دوباره انتخاب کنید."
+  },
+  "team.saving": {
+    "en": "Registering member…",
+    "fa": "در حال ثبت عضو…"
+  },
+  "team.exists": {
+    "en": "{name} is already a member of this company.",
+    "fa": "{name} از قبل عضو همین شرکت است."
+  },
+  "team.saved": {
+    "en": "Registered {name} in Paperclip.",
+    "fa": "{name} در Paperclip ثبت شد."
+  },
+  "team.approveHint": {
+    "en": "Review the hire under Paperclip → Approvals before assigning work.",
+    "fa": "در Paperclip، بخش Approvals، استخدام را بررسی کنید؛ سپس می‌توانید کار واگذار کنید."
+  },
+  "team.readyHint": {
+    "en": "You can assign work once the member is ready.",
+    "fa": "وقتی وضعیت عضو فعال یا آزاد شد، در میز تقسیم کار قابل انتخاب است."
+  },
+  "team.empty": {
+    "en": "No members yet. Registered agents and their status will appear here.",
+    "fa": "هنوز عضوی در دسترس نیست. بعد از ثبت، نام و وضعیت تأیید اینجا نمایش داده می‌شود."
+  },
+  "team.awaiting": {
+    "en": "Awaiting a hiring decision in Paperclip → Approvals.",
+    "fa": "در انتظار تأیید استخدام در Paperclip ← Approvals"
+  },
+  "team.memberWork": {
+    "en": "Member’s work",
+    "fa": "کارهای این عضو"
+  },
+  "team.approvals": {
+    "en": "Review hire",
+    "fa": "تأیید استخدام"
+  },
+  "team.board": {
+    "en": "Member in Paperclip",
+    "fa": "عضو در Paperclip"
+  },
+  "team.wake": {
+    "en": "Wake agent",
+    "fa": "بیدارباش"
+  },
+  "team.confirmWake": {
+    "en": "Request a Paperclip run for {name}?",
+    "fa": "برای {name} در Paperclip درخواست اجرا ارسال شود؟"
+  },
+  "team.woke": {
+    "en": "Wake request sent to Paperclip.",
+    "fa": "درخواست بیدارباش به Paperclip ارسال شد."
+  },
+  "team.output": {
+    "en": "Herdr output",
+    "fa": "خروجی Herdr"
+  },
+  "work.confirmReview": {
+    "en": "Is this manual task ready for review?",
+    "fa": "این کار دستی آمادهٔ بازبینی است؟"
+  },
+  "work.confirmManual": {
+    "en": "Start this task manually? Nothing will be sent to a terminal.",
+    "fa": "این کار را دستی شروع می‌کنید؟ متنی به ترمینال ارسال نمی‌شود."
+  },
+  "work.confirmRelease": {
+    "en": "Move this issue from Backlog to Todo? Paperclip may run the assigned agent.",
+    "fa": "این کار از Backlog وارد Todo شود؟ Paperclip ممکن است ایجنت مسئول را اجرا کند."
+  },
+  "work.reviewed": {
+    "en": "Human review requested. Open “Review in Paperclip” to check the result.",
+    "fa": "درخواست بازبینی انسانی روی تیکت ثبت شد. از «بازبینی در Paperclip» نتیجه را بررسی کنید."
+  },
+  "work.started": {
+    "en": "Manual work started. Copy the work sheet.",
+    "fa": "کار دستی شروع شد؛ برگهٔ کار را کپی کنید."
+  },
+  "work.released": {
+    "en": "Queued for the assigned agent. Check the actual status in Paperclip.",
+    "fa": "کار به صف اجرای مسئول رفت. وضعیت واقعی را در Paperclip پیگیری کنید."
+  },
+  "msg.network": {
+    "en": "Cannot read the dashboard response. Check the connection and try again.",
+    "fa": "پاسخ داشبورد خوانده نشد. اتصال را بررسی و دوباره تلاش کنید."
+  },
+  "err.local": {
+    "en": "Open the dashboard at its local address.",
+    "fa": "از آدرس محلی داشبورد استفاده کنید."
+  },
+  "err.localTargets": {
+    "en": "Session discovery is available only on the host computer.",
+    "fa": "فهرست نشست‌ها فقط روی همین رایانه در دسترس است."
+  },
+  "err.origin": {
+    "en": "Cross-origin action denied.",
+    "fa": "درخواست تغییر از مبدأ دیگر مجاز نیست."
+  },
+  "err.localWrite": {
+    "en": "To make changes, open the dashboard locally on the host computer.",
+    "fa": "برای تغییرات، داشبورد را با آدرس محلی روی رایانهٔ میزبان باز کنید."
+  },
+  "err.companyChanged": {
+    "en": "Company selection changed. Refresh the page.",
+    "fa": "شرکت عوض شده است؛ صفحه را تازه کنید."
+  },
+  "err.localHire": {
+    "en": "Local hiring requires Paperclip on this computer with the same file paths.",
+    "fa": "ثبت ایجنت محلی به Paperclip روی همین رایانه و همان مسیر فایل‌ها نیاز دارد."
+  },
+  "err.notFound": {
+    "en": "Not found.",
+    "fa": "پیدا نشد."
+  },
+  "err.media": {
+    "en": "Expected an application/json request.",
+    "fa": "نوع درخواست باید application/json باشد."
+  },
+  "err.size": {
+    "en": "Request body is empty or too large.",
+    "fa": "بدنهٔ درخواست خالی یا بیش از حد بزرگ است."
+  },
+  "err.json": {
+    "en": "Invalid JSON.",
+    "fa": "JSON نامعتبر است."
+  },
+  "err.object": {
+    "en": "Expected a JSON object.",
+    "fa": "بدنه باید یک شیء JSON باشد."
+  },
+  "err.agent": {
+    "en": "Agent not found in this company.",
+    "fa": "ایجنت در این شرکت پیدا نشد."
+  },
+  "err.manualWake": {
+    "en": "Use the work sheet for a manual agent.",
+    "fa": "برای ایجنت دستی از کپی برگهٔ کار استفاده کنید."
+  },
+  "err.localOutput": {
+    "en": "Terminal output is available only on the host computer.",
+    "fa": "خروجی ترمینال فقط روی همین رایانه در دسترس است."
+  },
+  "err.outputArgs": {
+    "en": "Invalid output source or line count.",
+    "fa": "منبع خروجی یا تعداد خطوط نامعتبر است."
+  },
+  "err.target": {
+    "en": "Invalid Herdr target.",
+    "fa": "هدف Herdr معتبر نیست."
+  },
+  "err.manualOutput": {
+    "en": "This is a manual member. Read the output in its application.",
+    "fa": "این عضو دستی است؛ خروجی را در خود برنامه ببینید."
+  },
+  "err.outputMap": {
+    "en": "No unique Herdr target found. Set HERDR_AGENT_MAP for this member’s output.",
+    "fa": "هدف یکتایی در Herdr پیدا نشد. برای خروجی این عضو HERDR_AGENT_MAP را تنظیم کنید."
+  },
+  "err.health": {
+    "en": "Unexpected /api/health response. Check the Paperclip URL and port.",
+    "fa": "پاسخ /api/health غیرمنتظره بود. آدرس و پورت Paperclip را بررسی کنید."
+  },
+  "err.unknownCompany": {
+    "en": "Unknown PAPERCLIP_COMPANY_ID. Clear or correct it in dashboard/.env and restart the dashboard.",
+    "fa": "شناسهٔ PAPERCLIP_COMPANY_ID شناخته نشد. آن را در dashboard/.env اصلاح یا خالی کنید و داشبورد را دوباره اجرا کنید."
+  },
+  "err.companyList": {
+    "en": "Expected a company list from Paperclip.",
+    "fa": "پاسخ Paperclip فهرست شرکت‌ها نبود."
+  },
+  "err.createCompany": {
+    "en": "Create a company in Paperclip ({url}); the dashboard will retry automatically.",
+    "fa": "در Paperclip ({url}) یک شرکت بسازید؛ داشبورد خودکار دوباره بررسی می‌کند."
+  },
+  "err.chooseCompany": {
+    "en": "Multiple companies. Choose an id from /api/companies, set PAPERCLIP_COMPANY_ID in dashboard/.env and restart the dashboard.",
+    "fa": "چند شرکت پیدا شد. شناسهٔ شرکت را از /api/companies بردارید، در dashboard/.env برای PAPERCLIP_COMPANY_ID بگذارید و داشبورد را دوباره اجرا کنید."
+  },
+  "err.companyId": {
+    "en": "Paperclip returned a company without an id.",
+    "fa": "شرکتی بدون شناسه از Paperclip دریافت شد."
+  },
+  "err.list": {
+    "en": "Expected a list from the Paperclip API.",
+    "fa": "پاسخ Paperclip یک فهرست معتبر نیست."
+  },
+  "err.connection": {
+    "en": "Paperclip connection: {state}. Check PAPERCLIP_API_URL and the npm start terminal.",
+    "fa": "وضعیت اتصال Paperclip: {state}. آدرس PAPERCLIP_API_URL و پنجرهٔ npm start را بررسی کنید."
+  },
+  "err.refused": {
+    "en": "refused",
+    "fa": "اتصال رد شد"
+  },
+  "err.timeout": {
+    "en": "timeout",
+    "fa": "پایان مهلت اتصال"
+  },
+  "err.url": {
+    "en": "PAPERCLIP_API_URL must be an HTTP(S) base URL without credentials, query or fragment.",
+    "fa": "PAPERCLIP_API_URL باید آدرس پایهٔ HTTP یا HTTPS بدون اطلاعات ورود، پارامتر یا قطعهٔ نشانی باشد."
+  },
+  "err.auth": {
+    "en": "Paperclip HTTP {status}: check PAPERCLIP_API_KEY and its permissions.",
+    "fa": "خطای HTTP {status} در Paperclip: مجوزها و PAPERCLIP_API_KEY را بررسی کنید."
+  },
+  "err.http": {
+    "en": "Paperclip returned HTTP {status} for {path}.",
+    "fa": "Paperclip برای {path} خطای HTTP {status} داد."
+  },
+  "err.unreachable": {
+    "en": "Cannot reach Paperclip. Check PAPERCLIP_API_URL and the npm start terminal.",
+    "fa": "اتصال به Paperclip برقرار نشد. PAPERCLIP_API_URL و پنجرهٔ npm start را بررسی کنید."
+  },
+  "err.upstreamJson": {
+    "en": "Expected JSON from Paperclip. Check PAPERCLIP_API_URL (base URL without /api).",
+    "fa": "پاسخ Paperclip از نوع JSON نبود. PAPERCLIP_API_URL باید آدرس پایه و بدون /api باشد."
+  },
+  "err.pendingReview": {
+    "en": "Review request is not pending. Check the issue in Paperclip.",
+    "fa": "درخواست بازبینی در وضعیت انتظار نیست. تیکت را در Paperclip بررسی کنید."
+  },
+  "err.reviewStatus": {
+    "en": "Review transition not confirmed. Check the issue in Paperclip.",
+    "fa": "تغییر وضعیت بازبینی تأیید نشد. تیکت را در Paperclip بررسی کنید."
+  },
+  "err.herdrMissing": {
+    "en": "Herdr is not on PATH. It is not needed for manual handoff.",
+    "fa": "Herdr در PATH نیست. برای تحویل دستی به آن نیاز ندارید."
+  },
+  "err.herdrCli": {
+    "en": "Herdr did not respond. Open the app and agent session under the same OS user.",
+    "fa": "Herdr پاسخ معتبر نداد. برنامه و نشست ایجنت را با همان کاربر باز کنید."
+  },
+  "err.herdrJson": {
+    "en": "Herdr did not return valid JSON.",
+    "fa": "پاسخ JSON معتبر از Herdr دریافت نشد."
+  },
+  "err.herdrList": {
+    "en": "Unrecognized Herdr agent list format.",
+    "fa": "قالب فهرست ایجنت‌های Herdr شناخته نشد."
+  },
+  "err.herdrBinding": {
+    "en": "The Herdr session no longer matches the registered binding.",
+    "fa": "نشست Herdr دیگر با اتصال ثبت‌شده مطابقت ندارد."
+  },
+  "err.fields": {
+    "en": "Unknown field or invalid input.",
+    "fa": "فیلد ناشناخته یا ورودی نامعتبر است."
+  },
+  "err.fieldText": {
+    "en": "“{field}” must be valid text of at most {limit} characters.",
+    "fa": "«{field}» باید متن معتبر تا {limit} نویسه باشد."
+  },
+  "err.unicode": {
+    "en": "Text must be valid Unicode.",
+    "fa": "متن ورودی یونیکد معتبر نیست."
+  },
+  "err.roster": {
+    "en": "Paperclip returned an invalid agent roster.",
+    "fa": "پاسخ فهرست ایجنت‌ها از Paperclip معتبر نیست."
+  },
+  "err.handoff": {
+    "en": "Choose a live session or manual handoff.",
+    "fa": "یک نشست زنده انتخاب کنید یا تحویل دستی را بزنید."
+  },
+  "err.reselect": {
+    "en": "Select the Herdr session again.",
+    "fa": "نشست Herdr را دوباره از فهرست انتخاب کنید."
+  },
+  "err.oldBinding": {
+    "en": "The existing binding points to another session and was not changed. Check the member in Paperclip.",
+    "fa": "اتصال قبلی به نشست دیگری تعلق دارد و تغییر نکرد. تنظیم عضو را در Paperclip بررسی کنید."
+  },
+  "err.duplicateName": {
+    "en": "Name already registered; the existing member was not changed. Choose another name.",
+    "fa": "این نام قبلاً ثبت شده است. رکورد قبلی تغییر نکرد؛ نام دیگری انتخاب کنید."
+  },
+  "err.duplicateTarget": {
+    "en": "This session is already linked to a company member.",
+    "fa": "این نشست از قبل به یک ایجنت شرکت وصل است."
+  },
+  "err.staleTarget": {
+    "en": "No unique matching live session. Refresh the Herdr list.",
+    "fa": "نشست یکتا و زنده پیدا نشد. فهرست Herdr را تازه کنید."
+  },
+  "err.hire": {
+    "en": "Hire not confirmed. Check the roster and Approvals in Paperclip.",
+    "fa": "پاسخ استخدام نامشخص است. فهرست ایجنت‌ها و Approvals را بررسی کنید."
+  },
+  "err.otherCompany": {
+    "en": "The issue does not belong to the selected company.",
+    "fa": "این کار متعلق به شرکت انتخاب‌شده نیست."
+  },
+  "err.planId": {
+    "en": "Invalid plan request ID.",
+    "fa": "شناسهٔ ثبت طرح نامعتبر است."
+  },
+  "err.stepCount": {
+    "en": "Enter between 1 and 20 subtasks per plan.",
+    "fa": "برای هر طرح بین ۱ تا ۲۰ زیرکار وارد کنید."
+  },
+  "err.assignee": {
+    "en": "A subtask owner is not an active, approved member of this company.",
+    "fa": "مسئول یکی از زیرکارها فعال یا تأییدشدهٔ همین شرکت نیست."
+  },
+  "err.createIssue": {
+    "en": "Issue creation not confirmed.",
+    "fa": "پاسخ ثبت کار نامشخص است."
+  },
+  "err.replay": {
+    "en": "This request was already used for a different issue. Check company work.",
+    "fa": "این درخواست قبلاً برای کار دیگری ثبت شده است. فهرست کارها را بررسی کنید."
+  },
+  "err.closed": {
+    "en": "The parent issue is closed. Choose an open issue.",
+    "fa": "کار اصلی بسته شده است؛ یک کار باز را انتخاب کنید."
+  },
+  "err.partial": {
+    "en": "Parent {id} is saved; {count} of {total} subtasks confirmed. Retry the same plan to avoid duplicates. {reason}",
+    "fa": "کار اصلی {id} ثبت است؛ ثبت {count} از {total} زیرکار تأیید شد. همین طرح را دوباره بفرستید؛ موارد ثبت‌شده تکرار نمی‌شوند. {reason}"
+  },
+  "err.ownerChanged": {
+    "en": "The owner changed or is unavailable. Refresh the list.",
+    "fa": "مسئول کار تغییر کرده یا در دسترس نیست. فهرست را تازه کنید."
+  },
+  "err.transition": {
+    "en": "This action is not allowed for the current status. Refresh the list.",
+    "fa": "این تغییر برای وضعیت فعلی کار مجاز نیست. فهرست را تازه کنید."
+  },
+  "err.update": {
+    "en": "Status change not confirmed. Check the issue in Paperclip.",
+    "fa": "وضعیت درخواستی تأیید نشد؛ کار را در Paperclip بررسی کنید."
+  },
+  "field.name": {
+    "en": "Agent name",
+    "fa": "نام ایجنت"
+  },
+  "field.target": {
+    "en": "Herdr session",
+    "fa": "نشست Herdr"
+  },
+  "field.kind": {
+    "en": "Session kind",
+    "fa": "نوع نشست"
+  },
+  "field.terminal": {
+    "en": "Session terminal",
+    "fa": "ترمینال نشست"
+  },
+  "field.issue": {
+    "en": "Issue ID",
+    "fa": "شناسهٔ کار"
+  },
+  "field.parent": {
+    "en": "Existing issue",
+    "fa": "کار موجود"
+  },
+  "field.parentTitle": {
+    "en": "Parent issue title",
+    "fa": "عنوان کار اصلی"
+  }
+}

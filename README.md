@@ -1,361 +1,138 @@
-<div dir="rtl">
+<div align="center">
+  <img src="assets/CyrusAsha_PaperclipAndHerdr-logo.png" alt="CyrusAsha · Paperclip × Herdr Team Desk — برنامه‌ریزی، واگذاری و بازبینی" width="960" />
+</div>
 
-# راهنمای راه‌اندازی Paperclip + Herdr برای تقسیم کار بین چند ایجنت
+# 📎 CyrusAsha_PaperclipAndHerdr
 
-**Paperclip** فهرست اعضای شرکت، کارها، مسئول هر کار و وضعیت بازبینی را نگه می‌دارد. **Herdr** محیطی است که برنامهٔ ایجنت در آن اجرا می‌شود. نصب Freebuff یا اجرای `agy` به‌تنهایی رکوردی در فهرست **Agents** شرکت نمی‌سازد.
+![Paperclip 2026.1106.0 · Python 3.10+ · فارسی و English](assets/desk-badges.svg)
 
-## مسیر کوتاه: از فهرست خالی تا اولین واگذاری
+**Team Desk / میز کار تیم** · **Version / نسخه: `1.0.0`**
 
-1. در ویندوز `setup-dashboard.cmd` را از ریشهٔ مخزن اجرا کنید. اگر شرکت ندارید، یک‌بار در Paperclip (`http://localhost:3100`) بسازید. نام همان شرکت باید بالای داشبورد فارسی (`http://localhost:8000`) باشد.
-2. در **تیم ایجنت‌ها** یک عضو ثبت کنید. برای **Freebuff**، «دستی» کافی است. برای **Antigravity**، `agy` را در پوشهٔ پروژه داخل Herdr باز کنید، منتظر آماده‌شدنش بمانید و نشستش را از فهرست انتخاب کنید. «ایجنت دیگر» نیز همین دو روش را دارد. عضوی که از قبل در Paperclip ساخته‌اید برای تقسیم کار به ثبت دوباره نیاز ندارد. اگر استخدام منتظر تأیید است، در **Paperclip → Approvals** آن را بررسی کنید.
-3. در **میز تقسیم کار** عنوان کار اصلی را بنویسید یا یک تیکت موجود را انتخاب کنید. برای هر زیرکار یک خروجی و یک مسئول بگذارید؛ مثلاً برای «جست‌وجوی مشتریان»، ساخت فیلتر با Antigravity و آزمایش نتایج خالی با Freebuff. **ثبت طرح در Paperclip** تیکت‌های مرتبط را در `backlog` می‌سازد؛ هنوز چیزی به ترمینال نمی‌فرستد.
-4. در **کارهای شرکت** فقط زیرکار آماده را شروع کنید: برای عضو متصل «ارسال به صف اجرا»؛ برای عضو دستی «شروع دستی» و کپی «برگهٔ کار» **در خودِ برنامهٔ ایجنت، نه در شل**. نتیجه را از «بازبینی در Paperclip» بررسی کنید.
+[English](#en) · [فارسی](#persian) · [Screenshots / تصاویر](#screenshots) · [Setup guides / راهنماهای نصب](#guides)
 
-برای این مسیر به Hermes، Bash، `jq`، MCP، ساخت کلید برای هر ایجنت یا نوشتن JSON نیاز نیست. [راهنمای میز کار و رفع اشکال](dashboard/README.md) · [شواهد آزمون و محدودیت‌ها](PROJECT_STATUS.md). برای اجرای فقط Paperclip، از ریشه `npm ci` و سپس `npm start` را بزنید. راه‌اندازی اولیه در بخش ۲ توضیح داده شده است.
+<div dir="rtl" lang="fa">
 
----
-
-## فهرست
-
-1. [پیش‌نیازها](#۱-پیشنیازها)
-2. [نصب Paperclip](#۲-نصب-paperclip)
-3. [نصب Herdr](#۳-نصب-herdr)
-4. [نصب ایجنت‌ها](#۴-نصب-ایجنتها)
-5. [ساخت شرکت و ایجنت مدیر (Hermes)](#۵-ساخت-شرکت-و-ایجنت-مدیر-hermes)
-6. [راه‌اندازی ایجنت‌ها در Herdr](#۶-راهاندازی-ایجنتها-در-herdr)
-7. [اتصال Antigravity](#۷-اتصال-antigravity)
-8. [اتصال Freebuff](#۸-اتصال-freebuff)
-9. [گردش کار روزانه](#۹-گردش-کار-روزانه)
-10. [تنظیمات `bridge.sh`](#۱۰-تنظیمات-bridgesh)
-11. [محدودیت‌ها](#۱۱-محدودیتها)
-12. [رفع اشکال](#۱۲-رفع-اشکال)
-
----
-
-## ۱. پیش‌نیازها
-
-| ابزار | برای چه | ویندوز | مک / لینوکس |
-|---|---|---|---|
-| **Node.js 24 LTS (از 24.15.0) یا 26+** | Paperclip، Freebuff، سرور MCP | از nodejs.org | از nodejs.org یا `nvm install 24` |
-| **Git** | worktree و (در ویندوز) Git Bash | `winget install Git.Git` | معمولاً نصب است |
-| **jq** | `bridge.sh` | `winget install jqlang.jq` | `brew install jq` یا `apt install jq` |
-| **curl** | `bridge.sh` | همراه Git Bash هست | معمولاً نصب است |
-| **Python 3.10 یا بالاتر** | داشبورد و Hermes | از python.org | معمولاً نصب است |
-
-بررسی نصب:
+یک کار را به چند خروجی کوچک بشکنید و هر خروجی را به ایجنت مشخصی بسپارید. **[Paperclip](https://github.com/paperclipai/paperclip)** مسئول هر تیکت و وضعیت بازبینی را نگه می‌دارد. **[Herdr](https://github.com/herdrdev/herdr)** نشست ترمینال ایجنت را فراهم می‌کند. ثبت طرح، هیچ کاری را اجرا نمی‌کند.
 
 </div>
 
-```bash
-node --version    # Node 24.15+ (24.x LTS) or 26+
-npm --version     # 11.16.0+
-git --version
-jq --version
-python --version
-```
-
-<div dir="rtl">
-
-**نکته‌های ویندوز**
-
-- `bridge.sh` یک اسکریپت bash است و با **Git Bash** اجرا می‌شود (همراه Git نصب می‌شود).
-- بعد از نصب jq، یک Git Bash جدید باز کنید و `jq --version` را بزنید تا مطمئن شوید از داخل آن در دسترس است.
-- Paperclip، Herdr و ایجنت‌ها باید همه با **یک کاربر ویندوز** اجرا شوند.
+Split a goal into small deliverables and give each one an owner. **[Paperclip](https://github.com/paperclipai/paperclip)** keeps the tickets, assignments and review decisions. **[Herdr](https://github.com/herdrdev/herdr)** provides the running agent session. Saving a plan does not start a run.
 
 ---
 
-## ۲. نصب Paperclip
+## 🔀 Handoff map / مسیر واگذاری
 
-این مخزن **سرور Paperclip را از بستهٔ رسمی `paperclipai`** نصب می‌کند؛ `paperclip` در npm پروژهٔ دیگری است. خودِ `npm install` سرور را اجرا نمی‌کند. از پوشه‌ای که `package.json` و `setup-dashboard.cmd` در آن هستند شروع کنید. Node سری ۲۴ را به‌روز کنید: حداقل خودِ CLI نسخهٔ 24.11 است، ولی وابستگی‌های قفل‌شدهٔ این پروژه روی سری ۲۴ به **24.15.0 یا جدیدتر** نیاز دارند. برای رعایت سیاست اسکریپت‌های نصب، **npm 11.16.0 یا بالاتر** لازم است. اگر npm قدیمی است، بعد از به‌روزرسانی Node با `npm install -g npm@11` آن را به‌روز و ترمینال را دوباره باز کنید.
+![Plan and assign → save in Backlog → release to a linked Herdr agent or copy a manual work sheet → human review in Paperclip. تقسیم کار، ثبت بدون اجرا، تحویل متصل یا دستی، سپس بازبینی انسانی.](docs/figures/handoff.svg)
 
-</div>
+<a id="en"></a>
 
-```bash
-npm ci       # نصب اولیه یا پس از تغییر package-lock.json
-npm start    # این ترمینال را باز نگه دارید؛ توقف با Ctrl+C
-```
+## English
 
-<div dir="rtl">
+### 🚀 First run
 
-- `npm start` بار اول تنظیمات و PostgreSQL داخلی را می‌سازد و در دفعات بعد تنظیمات موجود را نگه می‌دارد. نصب و مهاجرت اولیه ممکن است چند دقیقه طول بکشد و نصب به چند گیگابایت فضای خالی نیاز دارد. سرویس پس‌زمینه نصب نمی‌شود.
-- در این ترکیب به Copilot احتیاجی نیست. مرحلهٔ پرمصرف آماده‌سازی باینری **اختیاری Copilot** از نصب اصلی جدا شده است؛ PostgreSQL و بقیهٔ اجزای لازم همچنان نصب می‌شوند. فقط در صورت نیاز به آن آداپتور روی سکوی پشتیبانی‌شده، بعد از پایان نصب `npm run setup:copilot` را اجرا کنید.
-- رابط **Paperclip** معمولاً روی `http://localhost:3100` است. آدرس چاپ‌شده در ترمینال ملاک است. `http://localhost:3100/api/health` باید JSON با `status: "ok"` برگرداند. پاسخ `[]` از `/api/companies` یعنی سرور آماده است ولی هنوز شرکتی نساخته‌اید.
-- برای دیدن ایجنت‌ها و تیکت‌ها، در رابط Paperclip شرکت خودتان را بسازید. اگر تنها یک شرکت باشد داشبورد آن را خودکار پیدا می‌کند. اگر چند شرکت دارید، `PAPERCLIP_COMPANY_ID` را در `dashboard/.env` تعیین کنید.
-- **داشبورد فارسی** برنامهٔ جداگانه‌ای است. در ترمینال دوم `python dashboard/app.py` (در لینوکس/مک: `python3 dashboard/app.py`) را اجرا کنید و `http://localhost:8000` را باز کنید. [تنظیمات و آزمون اتصال داشبورد](dashboard/README.md).
-- **ویندوز:** به‌جای دو ترمینال می‌توانید `.\setup-dashboard.cmd` را اجرا کنید. راه‌انداز جدیدترین مفسر سازگار Python 3 را پیدا می‌کند و فایل اجرایی واقعی آن را به کار می‌گیرد؛ PyManager لازم نیست. برای انتخاب نسخه، مثلاً `.\setup-dashboard.cmd -PythonVersion 3.14` را بزنید. اگر Paperclip آماده باشد دوباره آن را اجرا نمی‌کند؛ فقط برای آدرس محلی پیش‌فرض و در نبود سرویس از بستهٔ محلی پروژه استفاده می‌کند (در صورت نیاز ابتدا `npm.cmd ci`). [انتخاب مسیر پایتون و عیب‌یابی مهلت اتصال](dashboard/README.md).
-- اگر قبلاً **بستهٔ درست** را سراسری نصب کرده‌اید، می‌توانید به‌جای مسیر پروژه در یک ترمینال `paperclipai onboard --yes` (بار اول) یا `paperclipai run` (با تنظیمات موجود) را اجرا کنید. هم‌زمان `npm start` دیگری برای همان نمونه نزنید. نصب سراسری تابع فایل قفل و اصلاحیه‌های امنیتی این مخزن نیست؛ برای نصب جدید مسیر `npm ci` و `npm start` را ترجیح دهید.
-
-**اگر با npm نصب شد ولی جواب نگرفتید:**
-
-| بررسی | اقدام |
+| Requirement | When you need it |
 |---|---|
-| `ENOENT ... package.json` | ترمینال را در ریشهٔ این مخزن باز کنید. |
-| `EBADENGINE`، `node` پیدا نشد یا PowerShell اجرای `npm.ps1` را مسدود کرد | `node -v`، `npm.cmd -v` و در ویندوز `where.exe node` را ببینید. پس از نصب Node سازگار ترمینال جدید باز کنید؛ از `npm.cmd ci` و `npm.cmd start` استفاده کنید. |
-| `paperclipai` پیدا نشد یا بستهٔ بومی PostgreSQL نصب نشده | `npm ci` باید بدون خطا تمام شود. وابستگی‌های اختیاری یا اسکریپت‌های نصب را حذف نکنید. `npm ls paperclipai`، فضای دیسک، معماری سیستم (بستهٔ PostgreSQL ویندوز: x64) و **اولین خطای npm** را بررسی کنید. |
-| `E404` یا خطای دریافت بسته | با `npm config get registry` مطمئن شوید رجیستری شما بستهٔ رسمی را در دسترس دارد. |
-| `/api/health` پاسخ نمی‌دهد | خروجی ترمینال `npm start` و `npm run doctor`، مسیر داده و پورتی که واقعاً چاپ شده را بررسی کنید. دادهٔ نمونهٔ قبلی را پاک نکنید. |
-| سرور سالم است ولی داشبورد داده ندارد | `python dashboard/test_connectivity.py` را اجرا کنید. آدرس پایه بدون `/api` است. شناسهٔ ثابت یا کلید نمایشی مانده از نصب قبلی را از `dashboard/.env` بردارید؛ برای نمونهٔ احراز هویت‌شده کلید مجاز تنظیم کنید. بعد از ویرایش، **داشبورد** را دوباره اجرا کنید. |
+| Node.js **24.15+ on the 24.x line, or 26+**; npm **11.16+** | Installing and starting this repository’s pinned Paperclip server |
+| Python **3.10+** | The dashboard and its process worker. Standard library only; no `pip install` or frontend build. |
+| Herdr and a signed-in coding agent | Only for linked delivery and terminal output. Planning and manual handoff work without Herdr. |
 
-**مسیر دادهٔ دلخواه:** در هر بار اجرا همان مسیر و همان کاربر سیستم‌عامل را استفاده کنید. داده‌های Paperclip در `node_modules` نیستند.
+**Windows:** from the repository root, run `.\setup-dashboard.cmd` in PowerShell. It reuses a ready Paperclip instance or bootstraps the default local one. If an old dashboard is still open, stop **that dashboard** before relaunching; there is no need to stop a healthy Paperclip server.
 
-</div>
+**Alternatively, use two terminals:**
 
-```bash
-npm start -- --data-dir "D:/AI-Workspace/paperclip-data"
-# تشخیص همان نمونه:
-npm run doctor -- --data-dir "D:/AI-Workspace/paperclip-data"
+```sh
+npm ci
+npm start
 ```
 
-<div dir="rtl">
+```sh
+python dashboard/app.py --open-browser   # use python3 on macOS/Linux if needed
+```
+
+Open **Paperclip** at `http://localhost:3100` (or the URL it prints) and create a company if needed. Open **Team Desk** at `http://localhost:8000`. One company is selected automatically; for multiple companies, set `PAPERCLIP_COMPANY_ID` in `dashboard/.env` and restart the dashboard.
+
+### 🧭 Your first handoff
+
+1. **Agent team:** register Freebuff for **manual** handoff, or start `agy` inside Herdr and link the detected session to Antigravity. Other agents work the same way. Installing a CLI does not create a member in Paperclip. If the company requires approval, review the hire in **Approvals**.
+2. **Task planner:** create or select a parent issue, add 1–20 subtasks, and choose an owner on each row. The optional three-step template is editable, not AI-generated. **Save plan to Paperclip** creates assigned issues in `backlog`; it does not send a prompt.
+3. **Company work:** release a ready linked task to the queue; Paperclip may wake its owner. For a manual member, choose **Start manually** and paste the **Work sheet** into the agent application, **not a shell**. Review the result in Paperclip. `in_review` is not `done`.
+
+Switch **فارسی / English** in the header at any time. The layout, labels, statuses and desk messages follow the language. Drafts and selections stay in place; company names, issue text and terminal output are not translated. Only the language preference is saved in the browser, not the draft.
+
+<a id="persian"></a>
+
+## فارسی
+
+<div dir="rtl" lang="fa">
+
+### 🚀 اولین اجرا
+
+| پیش‌نیاز | کاربرد |
+|---|---|
+| **Node.js سری ۲۴ از 24.15 به بعد یا ۲۶ به بالا** و **npm 11.16 یا بالاتر** | نصب و اجرای نسخهٔ قفل‌شدهٔ Paperclip در این مخزن |
+| **Python 3.10 یا بالاتر** | داشبورد و worker؛ بدون نیاز به نصب بسته با `pip` یا ساخت جداگانهٔ رابط |
+| **Herdr و ایجنتی که ورود به حسابش کامل شده باشد** | فقط برای ارسال متصل و خواندن خروجی ترمینال؛ برای برنامه‌ریزی و تحویل دستی لازم نیست |
+
+**ویندوز:** در PowerShell از ریشهٔ پروژه `.\setup-dashboard.cmd` را اجرا کنید. راه‌انداز از Paperclip آماده استفاده می‌کند یا نمونهٔ محلی پیش‌فرض را بالا می‌آورد. برای دیدن رابط جدید، اگر داشبورد قبلی باز است فقط **داشبورد** را ببندید و دوباره اجرا کنید؛ نیازی به توقف Paperclip آماده نیست.
+
+**روش دو ترمینال:** در اولی `npm ci` و سپس `npm start` را اجرا کنید. در دومی `python dashboard/app.py --open-browser` را بزنید؛ در لینوکس/مک در صورت نیاز از `python3` استفاده کنید.
+
+در **Paperclip** با آدرس `http://localhost:3100` یا آدرسی که سرور چاپ می‌کند، شرکت خود را بسازید. **میز کار تیم** در `http://localhost:8000` باز می‌شود. اگر فقط یک شرکت دارید، خودکار انتخاب می‌شود. برای چند شرکت، `PAPERCLIP_COMPANY_ID` را در `dashboard/.env` مشخص کنید و داشبورد را دوباره اجرا کنید.
+
+### 🧭 اولین واگذاری
+
+1. **تیم ایجنت‌ها:** Freebuff را برای **تحویل دستی** ثبت کنید. برای Antigravity، ابتدا `agy` را داخل Herdr باز کنید و نشست شناسایی‌شده را انتخاب کنید. برای ابزارهای دیگر هم همین دو روش در دسترس‌اند. نصب برنامه به‌تنهایی آن را عضو شرکت نمی‌کند. اگر استخدام منتظر تأیید است، در **Approvals** آن را بررسی کنید.
+2. **میز تقسیم کار:** کار اصلی را بسازید یا یک تیکت موجود را انتخاب کنید. برای هر یک از ۱ تا ۲۰ زیرکار، یک مسئول بگذارید. الگوی سه‌مرحله‌ای قابل‌ویرایش است، نه تولیدشده با مدل. **ثبت طرح در Paperclip** تیکت‌ها را در `backlog` می‌سازد؛ پرامپتی نمی‌فرستد.
+3. **کارهای شرکت:** فقط زیرکار آماده را به صف اجرا بفرستید؛ Paperclip می‌تواند ایجنت متصل را بیدار کند. برای عضو دستی «شروع دستی» را بزنید و «برگهٔ کار» را در **خودِ برنامهٔ ایجنت، نه شل** بچسبانید. نتیجه را در Paperclip بازبینی کنید؛ `in_review` به معنی `done` نیست.
+
+از بالای صفحه با **فارسی / English** زبان را عوض کنید. جهت صفحه، دکمه‌ها، وضعیت‌ها و پیام‌های میز تغییر می‌کنند، اما متن در حال ویرایش، مسئول انتخاب‌شده، نام شرکت، متن تیکت و خروجی ترمینال دست‌نخورده می‌مانند. مرورگر فقط ترجیح زبان را به خاطر می‌سپارد، نه پیش‌نویس را.
+
+</div>
 
 ---
 
-## ۳. نصب Herdr
+<a id="screenshots"></a>
 
-</div>
+## 🖼️ Screenshots / تصاویر رابط
 
-```powershell
-# ویندوز (PowerShell)
-powershell -ExecutionPolicy Bypass -c "irm https://herdr.dev/install.ps1 | iex"
-```
+Actual dashboard screens with **sample data**, not a live customer board or evidence of agent execution. Click an image for full size. / تصاویر واقعی داشبورد با **دادهٔ نمونه**؛ نه اطلاعات شرکت کاربر یا مدرک اجرای ایجنت. برای اندازهٔ کامل روی تصویر بزنید.
 
-```bash
-# مک و لینوکس
-curl -fsSL https://herdr.dev/install.sh | sh
-# یا: brew install herdr
-```
-
-<div dir="rtl">
-
-> بستهٔ `herdr` روی npm فقط یک نام رزروشده است؛ با `npm install -g herdr` نصب **نکنید**.
-
-اجرا:
-
-</div>
-
-```bash
-cd /path/to/your/project
-herdr
-```
-
-<div dir="rtl">
-
-- `Ctrl+B` سپس `Q`: جدا شدن از Herdr (ایجنت‌ها در پس‌زمینه می‌مانند).
-- `herdr` را دوباره بزنید تا برگردید.
-- `herdr server stop`: خاموش کردن کامل.
-
----
-
-## ۴. نصب ایجنت‌ها
-
-### Hermes
-
-</div>
-
-```bash
-pip install hermes-agent
-hermes --version
-```
-
-<div dir="rtl">
-
-- حداقل یک کلید API مدل لازم است (Anthropic، OpenRouter یا OpenAI).
-- Hermes باید روی همان دستگاهی باشد که Paperclip اجرا می‌شود.
-- **تأییدنشده:** پشتیبانی Hermes از ویندوز بومی را بررسی نکرده‌ام. اگر روی ویندوز نصب نشد، مستندات Hermes را ببینید (احتمالاً WSL لازم است). در آن صورت Paperclip هم باید داخل همان WSL اجرا شود، یا از آداپتور `hermes_gateway` استفاده کنید.
-
-### Antigravity CLI
-
-</div>
-
-```bash
-# مک و لینوکس
-curl -fsSL https://antigravity.google/cli/install.sh | bash
-agy --version
-```
-
-<div dir="rtl">
-
-- برای ویندوز، نصب‌کننده را از سایت رسمی Antigravity بردارید (دستور ویندوز را تأیید نکرده‌ام).
-- یک بار `agy` را دستی اجرا کنید و وارد حساب شوید.
-
-### Freebuff
-
-</div>
-
-```bash
-npm install -g freebuff
-freebuff          # یک بار اجرا و ورود به حساب
-```
-
-<div dir="rtl">
-
-- **هشدار ویندوز:** برای نسخه‌های 0.0.130 تا 0.0.137 گزارش شده که رابط Freebuff روی ویندوز باز نمی‌شود. اگر با پیام `Usage: node test-bootstrap-caching.mjs` بسته شد، نسخهٔ دیگری را امتحان کنید یا از WSL استفاده کنید.
-
----
-
-## ۵. ساخت شرکت و ایجنت مدیر (Hermes)
-
-1. `http://localhost:3100` را باز کنید و یک شرکت (Company) بسازید.
-2. شناسهٔ شرکت را بردارید:
-
-</div>
-
-```bash
-curl http://localhost:3100/api/companies
-```
-
-<div dir="rtl">
-
-3. فقط اگر مدیر خودکار با مدل می‌خواهید (برای میز فارسی لازم نیست)، در بخش **Agents** روی **New Agent** بزنید، آداپتور **Hermes** را انتخاب کنید و نقش مدیر (مثلاً CEO) بدهید.
-4. دکمهٔ **Test Environment** را بزنید تا مطمئن شوید Hermes پیدا می‌شود.
-
-در ادامه، `<COMPANY_ID>` یعنی همین شناسهٔ شرکت.
-
----
-
-## ۶. راه‌اندازی ایجنت‌ها در Herdr
-
-هر ایجنت مجری در یک پنجرهٔ Herdr و در **worktree جدا** اجرا می‌شود تا فایل‌های هم را خراب نکنند. پروژه باید یک ریپوی Git باشد.
-
-### Antigravity
-
-</div>
-
-```bash
-# Git Bash / مک / لینوکس
-created=$(herdr worktree create --cwd /path/to/project --branch feat-agy --no-focus)
-echo "$created" | jq .           # ساختار خروجی را ببینید و شناسهٔ پنجره را بردارید
-pane=$(echo "$created" | jq -r '.result.root_pane.pane_id')
-
-herdr agent start agy-worker --kind agy --pane "$pane"
-```
-
-```powershell
-# PowerShell
-$created = herdr worktree create --cwd D:\My-Code-Project --branch feat-agy --no-focus | ConvertFrom-Json
-$pane = $created.result.root_pane.pane_id
-herdr agent start agy-worker --kind agy --pane $pane
-```
-
-<div dir="rtl">
-
-- `agy-worker` یک نام پایدار برای انتخاب از «نشست زندهٔ Herdr» است. از همان کاربر و همان نشست Herdr استفاده کنید. برای مسیر ساده، باز کردن `agy` در یک پنجرهٔ پروژه و انتخاب آن از فهرست کافی است.
-- **تأییدنشده:** مسیر `.result.root_pane.pane_id` برای دستور `workspace create` مستند است؛ برای `worktree create` فرض کرده‌ام همان است. اگر خالی بود، خروجی JSON را نگاه کنید.
-
-### Freebuff
-
-</div>
-
-```bash
-created=$(herdr worktree create --cwd /path/to/project --branch feat-freebuff --no-focus)
-fb_pane=$(echo "$created" | jq -r '.result.root_pane.pane_id')
-herdr pane run "$fb_pane" "freebuff"
-echo "$fb_pane"     # مثلاً w2:p1 — یادداشت کنید
-```
-
-<div dir="rtl">
-
-در مسیر دستی، کافی است خودتان Freebuff را در پنجرهٔ پروژه اجرا کنید؛ تشخیص آن توسط Herdr شرط نیست. برای چند مجری هم‌زمان، از نشست‌ها و worktreeهای جدا استفاده کنید. میز کار خودش worktree نمی‌سازد و branchها را ادغام نمی‌کند.
-
----
-
-## ۷. اتصال Antigravity
-
-در «تیم ایجنت‌ها» پیش‌تنظیم **Antigravity** و حالت **متصل** را انتخاب کنید. «یافتن نشست‌ها» خروجی واقعی `herdr agent list` را می‌خواند. نام نشست یا پنجرهٔ شناسایی‌شده را انتخاب و «ثبت در شرکت» را بزنید. اسم نمایشی در Paperclip لازم نیست همان نام نشست باشد. اگر فهرست خالی است، ابتدا ورود و آمادگی `agy` در Herdr را بررسی کنید؛ یا همین امروز با روش دستی کار کنید.
-
-عضو جدید از آداپتور عمومی **process** با worker پایتون همین مخزن استفاده می‌کند؛ نیازی به آداپتور اختصاصی Antigravity نیست. مسیر مفسر و worker هنگام ثبت ذخیره می‌شود، پس مخزن باید برای Paperclip روی همین رایانه قابل دسترس بماند. برای هر نشست فقط یک عضو متصل بسازید. برای نشست‌های بی‌نام، شمارهٔ پنجره به **شناسهٔ همان ترمینال** مقید است؛ استفادهٔ مجدد از شمارهٔ پنجره به‌تنهایی اتصال قبلی را معتبر نمی‌کند. برای استفادهٔ بلندمدت نشست نام‌دار را ترجیح دهید.
-
-اگر از قبل ایجنتی با `bridge.sh` دارید، آداپتورش تغییر نمی‌کند؛ توضیح پل قدیمی در بخش ۱۰ آمده است. برای همان نشست هم‌زمان دو worker راه نیندازید.
-
-## ۸. اتصال Freebuff
-
-«تیم ایجنت‌ها → Freebuff → دستی → ثبت در شرکت» یک **عضو واقعی** برای واگذاری می‌سازد، نه یک برنامهٔ در حال اجرا. این حالت به MCP، کلید مخصوص ایجنت یا شناسایی Freebuff توسط Herdr نیاز ندارد. برگهٔ زیرکار را کپی کنید، آن را در خودِ Freebuff اجرا کنید، بعد از بررسی نتیجه «آمادهٔ بازبینی» را بزنید. در این روش هیچ ورودی خودکاری به پنجرهٔ ناشناخته ارسال نمی‌شود. برای ابزارهای دیگر هم می‌توانید نام و روش تحویل را انتخاب کنید. تنها اگر `herdr agent list` واقعاً ابزار را تشخیص می‌دهد، روش متصل را به کار ببرید.
-
-## ۹. گردش کار روزانه
-
-- **برنامه‌ریزی:** تیکت اصلی + ۱ تا ۲۰ زیرکار با مسئول مشخص. الگوی سه‌مرحله‌ای فقط نقطهٔ شروعِ قابل‌ویرایش است؛ هوش مصنوعی مسئول‌ها را حدس نمی‌زند.
-- **شروع:** روی «ارسال به صف اجرا» بزنید تا تیکت از `backlog` به `todo` برود؛ این تغییر خودش می‌تواند Paperclip را به اجرا وادارد، بیدارباش دوم لازم نیست. در حالت دستی شروع به `in_progress` می‌رود. ترتیب ردیف‌ها وابستگی اجرایی ایجاد نمی‌کند؛ مرحلهٔ وابسته را وقتی آماده شد آزاد کنید.
-- **تحویل:** worker متصل فقط برای تیکت واگذارشده، با مالکیت اجرای فعلی و نشست آماده کار می‌کند. بازگشت ایجنت به حالت بیکار **معادل درست‌بودن خروجی نیست**؛ worker یک درخواست بازبینی انسانی روی همان تیکت می‌سازد. مسئول نهایی در Paperclip تصمیم می‌گیرد کار بسته یا اصلاح شود.
-- **خطا:** اگر ارسال، انتظار یا ثبت بازبینی نامشخص ماند، قبل از بیدارباش یا واگذاری دوباره، نشست و صفحهٔ اجرای همان تیکت را بررسی کنید. «تلاش مجدد همین طرح» فقط مربوط به **ساخت تیکت‌ها** است، نه ارسال دوبارهٔ کار به ترمینال.
-
----
-
-## ۱۰. تنظیمات `bridge.sh`
-
-این بخش برای نگهداری آداپتور Bash **قدیمی** است؛ اعضایی که میز فارسی ثبت می‌کند از آن استفاده نمی‌کنند. پل قدیمی خروجی ترمینال را در کامنت کپی می‌کند و برای تغییر وضعیت به `in_review` فقط یک PATCH می‌فرستد؛ در نسخهٔ قفل‌شدهٔ Paperclip بدون مسیر معتبر بازبینی ممکن است `422` بگیرد. در این صورت تیکت و خروجی را بررسی کنید، کار انجام‌شده را دوباره اجرا نکنید.
-
-این متغیرها فقط در `adapterConfig.env` آداپتور قدیمی تنظیم می‌شوند:
-
-| متغیر | معنی | پیش‌فرض |
+| Page / صفحه | English · LTR | فارسی · RTL |
 |---|---|---|
-| `HERDR_TARGET` | نام ایجنت یا شناسهٔ پنجره در Herdr (اجباری) | — |
-| `HERDR_MODE` | `agent` برای ایجنت‌های شناخته‌شدهٔ Herdr؛ `pane` برای بقیه (مثل Freebuff) | `agent` |
-| `WAIT_MS` | حداکثر زمان یک تیکت (میلی‌ثانیه) | `1800000` (۳۰ دقیقه) |
-| `QUIET_SEC` | در حالت `pane`: چند ثانیه صفحهٔ بدون تغییر یعنی «تمام شد» | `45` |
-| `DONE_STATUS` | وضعیتی که بعد از پایان روی تیکت گذاشته می‌شود | `in_review` |
+| Task planner / میز تقسیم کار | [![English task planner with two assigned subtasks](docs/screenshots/planner-en.png)](docs/screenshots/planner-en.png) | [![میز تقسیم کار با دو زیرکار و مسئول مشخص](docs/screenshots/planner-fa.png)](docs/screenshots/planner-fa.png) |
+| Agent team / تیم ایجنت‌ها | [![Linked session and manual member in the English roster](docs/screenshots/team-en.png)](docs/screenshots/team-en.png) | [![تیم ایجنت‌ها و انتخاب نشست زنده در رابط فارسی](docs/screenshots/team-fa.png)](docs/screenshots/team-fa.png) |
+| Company work / کارهای شرکت | [![English issue list with owners and review status](docs/screenshots/work-en.png)](docs/screenshots/work-en.png) | [![تیکت‌ها، مسئول‌ها و وضعیت بازبینی در رابط فارسی](docs/screenshots/work-fa.png)](docs/screenshots/work-fa.png) |
 
-**اسکریپت چه می‌کند**
+## 🛠️ Troubleshooting / رفع اشکال
 
-1. اولین تیکت `in_progress` یا `todo` واگذارشده به ایجنت را می‌خواند.
-2. آن را برمی‌دارد (checkout). فقط در تداخل مالکیت (`HTTP 409`) کنار می‌رود؛ خطای مجوز یا اتصال را به‌عنوان موفقیت گزارش نمی‌کند.
-3. عنوان و شرح تیکت را در پنجرهٔ ایجنت تایپ می‌کند.
-4. صبر می‌کند تا کار تمام شود:
-   - حالت `agent`: از تشخیص وضعیت خود Herdr استفاده می‌کند.
-   - حالت `pane`: منتظر یک نشانهٔ پایان (`PAPERCLIP_DONE_...`) در خروجی می‌ماند؛ اگر نیامد، سکوت صفحه ملاک است.
-5. ۱۲۰ خط آخر خروجی را روی تیکت کامنت می‌گذارد و وضعیت را تغییر می‌دهد.
-6. اگر ارسال پرامپت یا خواندن خروجی ناموفق باشد، ایجنت گیر کند یا زمان تمام شود، تیکت را باز می‌گذارد.
+| Symptom / نشانه | Next step / اقدام |
+|---|---|
+| **Online, no agents** / آنلاین ولی بدون عضو | Check the company shown in the header; register the member and check approvals. / نام شرکت بالای میز را ببینید، عضو را ثبت کنید و تأیید استخدام را بررسی کنید. |
+| **No Herdr sessions** / فهرست نشست‌ها خالی است | Run `herdr agent list` as the same OS user in the same session. Manual handoff is still available. / ایجنت را داخل Herdr با همان کاربر باز کنید؛ تحویل دستی همچنان ممکن است. |
+| **Interrupted plan save** / قطع ارتباط وسط ثبت | Retry **the same plan** without reloading. After a reload, check existing issues first. / بدون بستن صفحه «تلاش مجدد همین طرح» را بزنید؛ بعد از بارگذاری مجدد اول تیکت‌ها را ببینید. |
+| **Delivery uncertain** / نتیجهٔ ارسال نامشخص | Inspect the issue, run and terminal **before** trying again. / قبل از ارسال دوباره، تیکت، گزارش اجرا و نشست را بررسی کنید. |
 
-**خودکار کردن Freebuff (آزمایشی):** می‌توانید به‌جای آداپتور بی‌اثر، همان `bridge.sh` را با `HERDR_TARGET=<شناسهٔ پنجره>` و `HERDR_MODE=pane` بدهید. این حالت شکننده است و ممکن است با شرایط استفادهٔ Freebuff (سرویس رایگان مبتنی بر تبلیغ) سازگار نباشد؛ خودتان بررسی کنید.
+## 🔒 Local use / استفادهٔ محلی
 
----
+The desk has **no login**. Keep the default `127.0.0.1` binding; even a read-only network view can disclose issue text. Keep credentials in `dashboard/.env`, out of screenshots and Git. The UI does not install agents, grant approvals or merge their work.
 
-## ۱۱. محدودیت‌ها
+<div dir="rtl" lang="fa">
 
-- **امنیت:** این راه‌اندازی برای استفادهٔ محلی است. گزارش وابستگی‌های باقی‌مانده و محدودیت انتشار در [SECURITY.md](SECURITY.md) آمده است.
-
-- **پرسش‌های تأیید:** اگر ایجنت وسط کار اجازه بخواهد، اسکریپت جواب نمی‌دهد و تیکت باز می‌ماند.
-- **Antigravity:** طبق مستندات Herdr، به‌محض برگشتن به خط فرمان «بیکار» حساب می‌شود، حتی اگر کار پس‌زمینه‌اش ادامه داشته باشد.
-- **گزارش و هزینه:** برای ایجنت‌های `process`، Paperclip فقط کامنت‌های ثبت‌شده را می‌بیند؛ گزارش زندهٔ اجرا و آمار هزینه ندارد.
-- **یک تیکت در هر بیدارباش:** اسکریپت در هر اجرا فقط یک تیکت را انجام می‌دهد.
-- **دامنهٔ آزمایش:** استخدام، واگذاری، اجرای worker و درخواست بازبینی با Paperclip واقعی و CLI ساختگی Herdr آزموده شدند؛ این آزمون جای اجرای برنامهٔ واقعی روی ویندوز شما نیست.
-- **Freebuff:** پیش‌فرض میز فارسی تحویل دستی است. سکوت صفحه را نشانهٔ موفقیت کار نمی‌گیرد.
-
----
-
-## ۱۲. رفع اشکال
-
-| نشانه | علت محتمل | راه‌حل |
-|---|---|---|
-| `'bash\r': No such file or directory` | پایان خط ویندوزی در اسکریپت | `sed -i 's/\r$//' bridge.sh` |
-| `command not found` در خط‌های اسکریپت | متن از چت کپی شده و کاراکتر مخفی دارد | فایل را دانلود کنید |
-| `jq: command not found` یا `herdr: command not found` | ابزار در مسیر Git Bash نیست | Git Bash جدید باز کنید؛ در صورت نیاز مسیر را در `adapterConfig.env.PATH` بدهید |
-| `checkout refused, skipping` | ایجنت دیگری تیکت را برداشته | طبیعی است؛ تیکت را دوباره واگذار کنید |
-| `no assigned work` | تیکتی با وضعیت `todo` یا `in_progress` به این ایجنت واگذار نشده | واگذاری و وضعیت تیکت را بررسی کنید |
-| اسکریپت تا ۳۰ دقیقه منتظر می‌ماند | ایجنت نشانهٔ پایان را چاپ نکرده و صفحه متحرک است | `WAIT_MS` را کم کنید یا خروجی پنجره را ببینید |
-| `state=blocked` و تیکت باز مانده | ایجنت منتظر تأیید است | در Herdr به پنجرهٔ ایجنت بروید و جواب دهید |
-| Herdr ایجنت را پیدا نمی‌کند | Paperclip و Herdr با دو کاربر متفاوت اجرا شده‌اند | هر دو را با یک کاربر اجرا کنید |
-| خطای `curl` با کد 4xx در گام اول | شکل پاسخ یا مسیر API با مستندات فرق دارد | متن خطا را نگه دارید تا اسکریپت اصلاح شود |
-
-**دستورهای کمکی Herdr**
+داشبورد **ورود کاربر ندارد**؛ آن را روی `127.0.0.1` نگه دارید. حتی نمای فقط‌خواندنی شبکه ممکن است متن تیکت‌ها را نشان دهد. کلیدها را در `dashboard/.env` نگه دارید، نه در تصاویر یا Git. میز کار برنامه‌ای نصب نمی‌کند، استخدام را خودکار تأیید نمی‌کند و شاخه‌ها را ادغام نمی‌کند.
 
 </div>
 
-```bash
-herdr agent get agy-worker                                     # وضعیت ایجنت
-herdr agent read agy-worker --source recent-unwrapped --lines 80   # خروجی اخیر
-herdr pane read <pane_id> --source visible                     # صفحهٔ فعلی یک پنجره
-herdr api schema --json > herdr-api.json                       # فهرست دقیق دستورهای نسخهٔ نصب‌شده
+<a id="guides"></a>
+
+## 📚 Guides & checks / راهنما و آزمون
+
+- [Detailed setup (English)](docs/SETUP.en.md) · [راهنمای کامل نصب، ایجنت‌ها و پل قدیمی (فارسی)](docs/SETUP.fa.md)
+- [راهنمای میز و راه‌انداز ویندوز](dashboard/README.md) · [Dashboard architecture / معماری](dashboard/SERVER_ARCHITECTURE.md) · [Tests & screenshot reproduction](dashboard/CONSTRUCTION.md)
+- [Verification & limitations / دامنهٔ آزمایش](PROJECT_STATUS.md) · [Security / امنیت](SECURITY.md) · [Contributing / مشارکت](CONTRIBUTING.md) · [Artwork credits / منبع نشان](assets/README.md)
+
+```sh
+python -m unittest discover -s dashboard -v   # offline / آفلاین
+python dashboard/test_connectivity.py        # read-only check of your Paperclip / بررسی اتصال
 ```
 
-<div dir="rtl">
-
----
-
-## پیوندها
-
-- Paperclip: https://github.com/paperclipai/paperclip — مستندات: https://docs.paperclip.ing
-- Herdr: https://github.com/herdrdev/herdr — مستندات: https://herdr.dev/docs
-- Hermes Agent: https://github.com/NousResearch/hermes-agent
-- Freebuff: https://freebuff.com
-
-</div>
+**CyrusAsha family / پروژه‌های مرتبط:** [GUI for OpenDataLoader PDF](https://github.com/hamzeh-asadi/CyrusAsha_GuiForOpenDataLoaderPDF) · [Setup Global Agents](https://github.com/hamzeh-asadi/CyrusAsha_SetupGlobalAgents) · [Universal RTL](https://github.com/hamzeh-asadi/CyrusAsha_UniversalRTL)

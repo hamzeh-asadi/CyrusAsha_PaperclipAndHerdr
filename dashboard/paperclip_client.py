@@ -11,9 +11,11 @@ from typing import Any, Optional
 from urllib.error import HTTPError as UrllibHTTPError, URLError
 from urllib.parse import urlparse
 
+from desk_text import Message
+
 
 class PaperclipError(RuntimeError):
-    def __init__(self, message: str, status: int = 502):
+    def __init__(self, message: str | Message, status: int = 502):
         super().__init__(message)
         self.status = status
 
@@ -23,9 +25,7 @@ class PaperclipConnectionError(PaperclipError):
 
     def __init__(self, state: str):
         self.state = state
-        super().__init__(
-            f"Paperclip connection {state}. Check PAPERCLIP_API_URL and the npm start terminal.", 503
-        )
+        super().__init__(Message("err.connection", state=Message("err." + state)), 503)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -80,9 +80,7 @@ def request_json(
             raise ValueError("invalid base URL")
         req = urllib.request.Request(f"{url}{path}", headers=headers, method=method, data=body)
     except ValueError as exc:
-        raise PaperclipError(
-            "PAPERCLIP_API_URL must be an HTTP(S) base URL without credentials, query or fragment."
-        ) from exc
+        raise PaperclipError(Message("err.url")) from exc
     try:
         # Never send loopback traffic (including board credentials) to a system proxy.
         opener = _direct_api if is_loopback(base.hostname) else _api
@@ -91,24 +89,18 @@ def request_json(
     except UrllibHTTPError as exc:
         exc.close()
         if exc.code in (401, 403):
-            raise PaperclipError(
-                f"Paperclip HTTP {exc.code}: check PAPERCLIP_API_KEY and its permissions.", exc.code
-            ) from exc
+            raise PaperclipError(Message("err.auth", status=str(exc.code)), exc.code) from exc
         status = exc.code if 400 <= exc.code < 500 else 502
-        raise PaperclipError(f"Paperclip returned HTTP {exc.code} for {path}.", status) from exc
+        raise PaperclipError(Message("err.http", status=str(exc.code), path=path), status) from exc
     except (URLError, OSError, HTTPException) as exc:
         reason = exc.reason if isinstance(exc, URLError) else exc
         if isinstance(reason, ConnectionRefusedError):
             raise PaperclipConnectionError("refused") from exc
         if isinstance(reason, TimeoutError):
             raise PaperclipConnectionError("timeout") from exc
-        raise PaperclipError(
-            "Cannot reach Paperclip. Check PAPERCLIP_API_URL and the npm start terminal.", 503
-        ) from exc
+        raise PaperclipError(Message("err.unreachable"), 503) from exc
     except ValueError as exc:
-        raise PaperclipError(
-            "Expected JSON from Paperclip. Check PAPERCLIP_API_URL (base URL without /api)."
-        ) from exc
+        raise PaperclipError(Message("err.upstreamJson")) from exc
 
 
 def request_human_review(api, issue_path, key):
@@ -121,26 +113,26 @@ def request_human_review(api, issue_path, key):
             "resolverPolicy": "human_only",
             "continuationPolicy": "none",
             "idempotencyKey": "herdr-review:" + key,
-            "title": "بازبینی خروجی ایجنت",
+            "title": "Review agent output / بازبینی خروجی ایجنت",
             "payload": {
                 "version": 1,
-                "prompt": "خروجی این زیرکار را در محیط پروژه بررسی کردید؟",
-                "acceptLabel": "تأیید خروجی",
-                "rejectLabel": "نیاز به اصلاح",
+                "prompt": "Have you checked this subtask in the project workspace? / خروجی این زیرکار را در محیط پروژه بررسی کردید؟",
+                "acceptLabel": "Accept output / تأیید خروجی",
+                "rejectLabel": "Needs changes / نیاز به اصلاح",
             },
         },
     )
     if not isinstance(review, dict) or not review.get("id") or review.get("status") != "pending":
-        raise PaperclipError("درخواست بازبینی در وضعیت انتظار نیست. تیکت را در Paperclip بررسی کنید.", 409)
+        raise PaperclipError(Message("err.pendingReview"), 409)
     issue = api(
         issue_path,
         "PATCH",
         data={
             "status": "in_review",
             "reviewInteractionId": review["id"],
-            "comment": "خروجی برای بازبینی انسانی آماده است.",
+            "comment": "Ready for human review. / خروجی برای بازبینی انسانی آماده است.",
         },
     )
     if not isinstance(issue, dict) or issue.get("status") != "in_review":
-        raise PaperclipError("تغییر وضعیت بازبینی تأیید نشد. تیکت را در Paperclip بررسی کنید.", 409)
+        raise PaperclipError(Message("err.reviewStatus"), 409)
     return issue

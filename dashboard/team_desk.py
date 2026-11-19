@@ -5,6 +5,7 @@ import sys
 import uuid
 from urllib.parse import quote
 
+from desk_text import Message, error_detail
 from herdr_worker import live_targets
 from paperclip_client import PaperclipError, request_human_review
 
@@ -20,7 +21,7 @@ def reject(message, status=400):
 
 def fields(value, allowed):
     if not isinstance(value, dict) or set(value) - set(allowed):
-        reject("فیلد ناشناخته یا ورودی نامعتبر است.")
+        reject(Message("err.fields"))
 
 
 def text(value, label, limit=240, optional=False):
@@ -30,11 +31,11 @@ def text(value, label, limit=240, optional=False):
         or len(value) > limit
         or "\x00" in value
     ):
-        reject(f"«{label}» باید متن معتبر تا {limit} نویسه باشد.")
+        reject(Message("err.fieldText", field=label, limit=limit))
     try:
         value.encode("utf-8")
     except UnicodeError:
-        reject("متن ورودی یونیکد معتبر نیست.")
+        reject(Message("err.unicode"))
     return value.strip()
 
 
@@ -47,7 +48,7 @@ def roster(api, company):
     if not isinstance(rows, list) or not all(
         isinstance(r, dict) and r.get("id") and r.get("companyId", company) == company for r in rows
     ):
-        reject("پاسخ فهرست ایجنت‌ها از Paperclip معتبر نیست.", 502)
+        reject(Message("err.roster"), 502)
     return rows
 
 
@@ -81,16 +82,16 @@ def issue_summary(record):
 
 def enroll(api, company, payload):
     fields(payload, ("companyId", "name", "mode", "target", "terminal", "kind"))
-    name = text(payload.get("name"), "نام ایجنت", 80)
+    name = text(payload.get("name"), Message("field.name"), 80)
     mode = payload.get("mode")
-    target = text(payload.get("target", ""), "نشست Herdr", 120, True)
+    target = text(payload.get("target", ""), Message("field.target"), 120, True)
     if mode not in ("agent", "manual") or (mode == "agent") != bool(target):
-        reject("یک نشست زنده انتخاب کنید یا تحویل دستی را بزنید.")
+        reject(Message("err.handoff"))
     link = {"mode": mode, "target": target}
-    expected_kind = text(payload.get("kind", ""), "نوع نشست", 100, True)
-    expected_terminal = text(payload.get("terminal", ""), "ترمینال نشست", 200, True)
+    expected_kind = text(payload.get("kind", ""), Message("field.kind"), 100, True)
+    expected_terminal = text(payload.get("terminal", ""), Message("field.terminal"), 200, True)
     if (mode == "agent" and not expected_kind) or (mode == "manual" and (expected_kind or expected_terminal)):
-        reject("نشست Herdr را دوباره از فهرست انتخاب کنید.")
+        reject(Message("err.reselect"))
     rows = roster(api, company)
     for row in rows:
         if row.get("status") == "terminated":
@@ -103,24 +104,24 @@ def enroll(api, company, payload):
                     expected_kind,
                 ):
                     reject(
-                        "اتصال قبلی به نشست دیگری تعلق دارد و تغییر نکرد. تنظیم عضو را در Paperclip بررسی کنید.",
+                        Message("err.oldBinding"),
                         409,
                     )
                 return {"agent": agent_summary(row), "existing": True}
-            reject("این نام قبلاً ثبت شده است. رکورد قبلی تغییر نکرد؛ نام دیگری انتخاب کنید.", 409)
+            reject(Message("err.duplicateName"), 409)
         if mode == "agent" and connection(row) == link:
-            reject("این نشست از قبل به یک ایجنت شرکت وصل است.", 409)
+            reject(Message("err.duplicateTarget"), 409)
     args = ["-E", "-s", str(WORKER), mode]
     if mode == "agent":
         try:
             matches = [row for row in live_targets() if row["target"] == target]
         except RuntimeError as exc:
-            reject(str(exc), 503)
+            reject(error_detail(exc), 503)
         if len(matches) != 1 or (matches[0]["terminal"], matches[0]["kind"]) != (
             expected_terminal,
             expected_kind,
         ):
-            reject("نشست یکتا و زنده پیدا نشد. فهرست Herdr را تازه کنید.", 409)
+            reject(Message("err.staleTarget"), 409)
         binding = matches[0]
         link.update(terminal=binding["terminal"], kind=binding["kind"])
         args.extend([target, binding["terminal"], binding["kind"]])
@@ -147,7 +148,7 @@ def enroll(api, company, payload):
         or not isinstance(result.get("agent"), dict)
         or not result["agent"].get("id")
     ):
-        reject("پاسخ استخدام نامشخص است. فهرست ایجنت‌ها و Approvals را بررسی کنید.", 502)
+        reject(Message("err.hire"), 502)
     return {
         "agent": agent_summary(result["agent"]),
         "existing": False,
@@ -156,10 +157,10 @@ def enroll(api, company, payload):
 
 
 def get_issue(api, company, issue_id):
-    path = "/api/issues/" + quote(text(issue_id, "شناسهٔ کار", 100), safe="")
+    path = "/api/issues/" + quote(text(issue_id, Message("field.issue"), 100), safe="")
     issue = api(path)
     if not isinstance(issue, dict) or issue.get("companyId") != company or issue.get("id") != issue_id:
-        reject("این کار متعلق به شرکت انتخاب‌شده نیست.", 404)
+        reject(Message("err.otherCompany"), 404)
     return issue
 
 
@@ -168,24 +169,24 @@ def save_plan(api, company, payload):
     try:
         key = "herdr-desk:" + str(uuid.UUID(str(payload.get("requestId"))))
     except ValueError:
-        reject("شناسهٔ ثبت طرح نامعتبر است.")
-    parent_id = text(payload.get("parentId", ""), "کار موجود", 100, True)
-    title = text(payload.get("title", ""), "عنوان کار اصلی", optional=bool(parent_id))
+        reject(Message("err.planId"))
+    parent_id = text(payload.get("parentId", ""), Message("field.parent"), 100, True)
+    title = text(payload.get("title", ""), Message("field.parentTitle"), optional=bool(parent_id))
     steps = payload.get("steps")
     if not isinstance(steps, list) or not 1 <= len(steps) <= 20:
-        reject("برای هر طرح بین ۱ تا ۲۰ زیرکار وارد کنید.")
+        reject(Message("err.stepCount"))
     members = {a["id"] for a in roster(api, company) if eligible(a)}
     children = []
     for step in steps:
         fields(step, ("title", "description", "assigneeAgentId"))
-        assignee = text(step.get("assigneeAgentId"), "مسئول", 100)
+        assignee = text(step.get("assigneeAgentId"), Message("work.owner"), 100)
         if assignee not in members:
-            reject("مسئول یکی از زیرکارها فعال یا تأییدشدهٔ همین شرکت نیست.", 409)
+            reject(Message("err.assignee"), 409)
         children.append(
             {
-                "title": text(step.get("title"), "عنوان زیرکار"),
+                "title": text(step.get("title"), Message("step.title")),
                 "assigneeAgentId": assignee,
-                "description": text(step.get("description", ""), "شرح زیرکار", 3000, True),
+                "description": text(step.get("description", ""), Message("step.description"), 3000, True),
             }
         )
     # Validate every row BEFORE the first write. Backlog deliberately does not wake agents.
@@ -198,16 +199,16 @@ def save_plan(api, company, payload):
             data={**data, "status": "backlog", "idempotencyKey": key + ":" + suffix, "allowDuplicate": True},
         )
         if not isinstance(row, dict) or not row.get("id") or row.get("companyId") != company:
-            reject("پاسخ ثبت کار نامشخص است.", 502)
+            reject(Message("err.createIssue"), 502)
         if any(row.get(k) != data.get(k) for k in ("title", "parentId", "assigneeAgentId")) or (
             "description" in data and (row.get("description") or "") != data["description"]
         ):
-            reject("این درخواست قبلاً برای کار دیگری ثبت شده است. فهرست کارها را بررسی کنید.", 409)
+            reject(Message("err.replay"), 409)
         return row
 
     parent = get_issue(api, company, parent_id) if parent_id else create("parent", {"title": title})
     if parent.get("status") in ("done", "cancelled"):
-        reject("کار اصلی بسته شده است؛ یک کار باز را انتخاب کنید.", 409)
+        reject(Message("err.closed"), 409)
     created = []
     for index, child in enumerate(children):
         data = {
@@ -220,9 +221,13 @@ def save_plan(api, company, payload):
             created.append(issue_summary(create(str(index), data)))
         except PaperclipError as exc:
             raise PaperclipError(
-                f"کار اصلی {parent.get('identifier') or parent['id']} ثبت است؛ "
-                f"ثبت {len(created)} از {len(children)} زیرکار تأیید شد. "
-                f"همین طرح را دوباره بفرستید؛ موارد ثبت‌شده تکرار نمی‌شوند. {exc}",
+                Message(
+                    "err.partial",
+                    id=parent.get("identifier") or parent["id"],
+                    count=len(created),
+                    total=len(children),
+                    reason=error_detail(exc),
+                ),
                 exc.status,
             ) from exc
     return {"parent": issue_summary(parent), "children": created}
@@ -242,14 +247,14 @@ def advance(api, company, payload):
         None,
     )
     if not member:
-        reject("مسئول کار تغییر کرده یا در دسترس نیست. فهرست را تازه کنید.", 409)
+        reject(Message("err.ownerChanged"), 409)
     manual = (connection(member) or {}).get("mode") == "manual"
     if payload.get("action") == "release" and issue["status"] == "backlog":
         status = "in_progress" if manual else "todo"
     elif payload.get("action") == "review" and manual and issue["status"] == "in_progress":
         status = "in_review"
     else:
-        reject("این تغییر برای وضعیت فعلی کار مجاز نیست. فهرست را تازه کنید.", 409)
+        reject(Message("err.transition"), 409)
     path = "/api/issues/" + quote(issue["id"], safe="")
     if status == "in_review":
         result = request_human_review(api, path, f"{issue['id']}:{issue['statusVersion']}")
@@ -259,5 +264,5 @@ def advance(api, company, payload):
             patch["expectedStatusVersion"] = issue["statusVersion"]
         result = api(path, "PATCH", data=patch)
     if not isinstance(result, dict) or result.get("id") != issue["id"] or result.get("status") != status:
-        reject("وضعیت درخواستی تأیید نشد؛ کار را در Paperclip بررسی کنید.", 409)
+        reject(Message("err.update"), 409)
     return {"issue": issue_summary(result)}

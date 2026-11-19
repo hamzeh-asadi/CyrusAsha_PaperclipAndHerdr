@@ -8,13 +8,13 @@
 }
 :root {
   color-scheme: light;
-  --ink: #182f2a;
-  --muted: #586c63;
-  --pine: #175841;
-  --rule: #dae2d9;
-  --paper: #f5f6f0;
-  --tint: #eaf2e4;
-  --orange: #ae6428;
+  --ink: #192f43;
+  --muted: #52677a;
+  --accent: #215b85;
+  --rule: #d7e0e8;
+  --paper: #f3f6f9;
+  --tint: #eaf2f8;
+  --gold: #eac782;
   --radius: 16px;
 }
 * {
@@ -53,7 +53,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid #659b78;
+  outline: 3px solid #599dc7;
   outline-offset: 2px;
 }
 .wrap {
@@ -77,23 +77,19 @@ textarea:focus-visible {
   gap: 12px;
 }
 .top-inner {
-  height: 82px;
+  min-height: 80px;
   justify-content: space-between;
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
-  background: var(--ink);
-  width: 43px;
-  height: 43px;
+  display: block;
+  padding: 2px;
+  background: #10283e;
+  border: 1px solid #304d63;
+  box-shadow: 0 2px 5px #172d4315;
+  width: 49px;
+  height: 49px;
   border-radius: 13px;
-}
-.brand-mark svg {
-  width: 28px;
-  stroke: #d8f0be;
-  stroke-width: 2;
-  stroke-linecap: round;
-  fill: none;
+  flex: none;
 }
 .brand b {
   display: block;
@@ -144,21 +140,27 @@ textarea:focus-visible {
   padding: 10px 18px;
 }
 .tabs button.selected {
-  color: var(--pine);
+  color: var(--accent);
   font-weight: 700;
-  border-color: var(--pine);
+  border-color: var(--accent);
 }
-.tabs span {
+.tabs .tab-count {
   display: inline-block;
   min-width: 19px;
-  background: #e5e9df;
+  background: #e4ebf2;
   border-radius: 5px;
   font: 600 12px/19px Tahoma;
 }
 .hero {
   border-radius: var(--radius);
-  background: #193f36;
-  color: #f7fcf3;
+  background-color: #10283e;
+  background-image:
+    radial-gradient(#94c4d122 1px, transparent 1px), linear-gradient(110deg, #173a54, #10283e 65%);
+  background-size:
+    18px 18px,
+    100% 100%;
+  border: 1px solid #254962;
+  color: #f7fbff;
   padding: 25px 32px;
   display: flex;
   align-items: center;
@@ -180,15 +182,71 @@ textarea:focus-visible {
   font-size: 14px;
 }
 .hero p {
-  color: #d6e6da;
+  color: #d0e2ed;
 }
 .eyebrow.light {
-  color: #c8e6a3;
+  color: var(--gold);
 }
-.diagram {
-  width: 180px;
+.map-figure {
+  margin: 0;
+  padding-inline: 12px;
+  text-align: center;
   flex: none;
 }
+.diagram {
+  display: block;
+  width: clamp(174px, 21vw, 255px);
+}
+html[dir="rtl"] .diagram {
+  transform: scaleX(-1);
+}
+.map-figure figcaption {
+  margin-top: 2px;
+  color: #b9d3e2;
+  font-size: 11px;
+}
+/* Mirror routing in RTL without reversing the terminal prompt or check mark. */
+html[dir="rtl"] .diagram .glyph {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scaleX(-1);
+}
+html[lang="en"] body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+html[lang="en"] .eyebrow {
+  letter-spacing: 0.11em;
+}
+html[lang="fa"] .hero h1,
+html[lang="fa"] .page-heading h1 {
+  letter-spacing: normal;
+}
+.languages {
+  display: inline-flex;
+  flex: none;
+  align-items: stretch;
+  background: #edf2f6;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+}
+.languages button {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font:
+    600 12px/1.75 Vazirmatn,
+    system-ui,
+    sans-serif;
+}
+.languages [aria-pressed="true"] {
+  color: var(--accent);
+  background: white;
+  box-shadow: 0 1px 4px #0b284225;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(245px, 1fr);
@@ -211,7 +269,11 @@ aside {
   padding: 22px;
 }
 .guide {
-  background: #edf0e6;
+  background: #edf3f7;
+  border-top: 3px solid #d4ad67;
+}
+html[lang="fa"] .guide ol {
+  list-style-type: persian;
 }
 .guide ol {
   margin: 12px 0 0;
@@ -247,7 +309,7 @@ aside {
   margin: 5px 0 10px;
 }
 .eyebrow {
-  color: var(--pine);
+  color: var(--accent);
   margin-bottom: 3px;
 }
 h2,
@@ -287,8 +349,8 @@ h3 {
 .status.idle,
 .status.active,
 .status.done {
-  background: var(--tint);
-  color: #376040;
+  background: #e6f2e9;
+  color: #2c613d;
 }
 .pill.online:before {
   background: #428352;
@@ -326,12 +388,12 @@ h3 {
   font: 22px/1 system-ui;
 }
 .primary {
-  background: var(--pine);
-  border-color: var(--pine);
+  background: var(--accent);
+  border-color: var(--accent);
   color: white;
 }
 .primary:hover {
-  background: #104634;
+  background: #194564;
 }
 .ghost:hover,
 .icon-btn:hover {
@@ -339,7 +401,7 @@ h3 {
 }
 .link {
   background: none;
-  color: var(--pine);
+  color: var(--accent);
   border-color: transparent;
   padding: 4px;
 }
@@ -351,9 +413,9 @@ h3 {
   width: 100%;
 }
 .add {
-  color: var(--pine);
-  border: 1px dashed #9db4a3;
-  background: #f8faf6;
+  color: var(--accent);
+  border: 1px dashed #94adc2;
+  background: #f8fafc;
   margin-top: 4px;
 }
 .add:hover {
@@ -370,7 +432,7 @@ textarea,
 select {
   width: 100%;
   background: white;
-  border: 1px solid #becbc0;
+  border: 1px solid #bccbd7;
   border-radius: 8px;
   padding: 8px 10px;
   min-width: 0;
@@ -404,7 +466,7 @@ label > textarea,
   border-radius: 10px;
   padding: 11px 12px;
   margin: 9px 0;
-  background: #fafbf8;
+  background: #f8fafc;
 }
 .step-head {
   display: flex;
@@ -448,7 +510,7 @@ label > textarea,
   font-size: 13px;
   white-space: pre-line;
   background: var(--tint);
-  color: #235537;
+  color: #204e69;
 }
 .message.warn {
   color: #7b4526;
@@ -471,8 +533,8 @@ label > textarea,
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: #e3eddb;
-  color: #325743;
+  background: #e3edf6;
+  color: #254f73;
   font:
     700 15px/1 Vazirmatn,
     Tahoma,
@@ -500,7 +562,7 @@ label > textarea,
 }
 .empty {
   border: 1px dashed var(--rule);
-  background: #f8faf5;
+  background: #f8fafc;
   color: var(--muted);
   border-radius: 10px;
   padding: 16px;
@@ -563,7 +625,7 @@ dialog::backdrop {
 }
 dialog textarea {
   margin: 8px 0;
-  background: #f7f9f3;
+  background: #f5f8fb;
 }
 @media (max-width: 800px) {
   .layout,
@@ -584,7 +646,7 @@ dialog textarea {
   }
 }
 @media (max-width: 520px) {
-  .diagram {
+  .map-figure {
     display: none;
   }
   .row-fields {
@@ -595,7 +657,29 @@ dialog textarea {
     font-size: 13px;
   }
   .top-inner {
-    height: 67px;
+    padding-block: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .brand small {
+    letter-spacing: 0.5px;
+    font-size: 8px;
+  }
+  .brand-mark {
+    width: 39px;
+    height: 39px;
+  }
+  .brand {
+    gap: 7px;
+  }
+  .top-tools {
+    flex-wrap: wrap;
+  }
+  .languages button {
+    padding-inline: 7px;
+  }
+  .hero {
+    padding: 18px 20px;
   }
   .form-actions,
   .page-heading.section-head {

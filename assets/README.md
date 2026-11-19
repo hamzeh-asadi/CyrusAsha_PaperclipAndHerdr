@@ -1,0 +1,5 @@
+# CyrusAsha artwork / نشان پروژه
+
+`CyrusAsha-Banner.png` and the cropped `dashboard/brand/desk-mark.png` use the shared CyrusAsha artwork from [CyrusAsha_SetupGlobalAgents](https://github.com/hamzeh-asadi/CyrusAsha_SetupGlobalAgents/blob/main/assets/CyrusAsha-Banner.png), © 2026 Hamzeh Asadi, resized for this repository. See [the original MIT notice](CyrusAsha-brand-LICENSE.txt) for this artwork. The project banner [`CyrusAsha_PaperclipAndHerdr-logo.png`](CyrusAsha_PaperclipAndHerdr-logo.png) combines the same credited artwork with a bilingual wordmark and an assignment map; its editable source is [`desk-lockup.svg`](desk-lockup.svg). The PNG is flattened so Markdown viewers need no external SVG fonts or images. The handoff diagram and dashboard screenshots in `docs/` depict **this** project.
+
+بنر و نشان کوچک داشبورد از نشان مشترک CyrusAsha گرفته شده‌اند؛ بنر اختصاصی Paperclip × Herdr، نمودار واگذاری و تصاویر رابط در `docs/` مخصوص همین پروژه‌اند. مجوز پیوست مربوط به نشان است، نه اعلام مجوزی جدید برای کل مخزن.

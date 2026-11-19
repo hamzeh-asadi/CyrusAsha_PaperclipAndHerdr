@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="406" viewBox="0 0 1080 406" role="img" aria-labelledby="title desc">
+  <title id="title">Issue handoff / مسیر واگذاری کار</title>
+  <desc id="desc">Saving a parent and assigned subtasks in Backlog does not execute them. On explicit release, a linked Herdr agent or a manual work sheet carries the task. Both paths end at human review in Paperclip. ثبت طرح اجرایی را آغاز نمی‌کند؛ تحویل متصل یا دستی پس از شروع صریح به بازبینی انسانی می‌رسد.</desc>
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#658ba5" opacity=".21"/></pattern>
+    <marker id="tip" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="m0 0 8 4-8 4z" fill="#82b3cb"/></marker>
+  </defs>
+  <rect width="1080" height="406" rx="18" fill="#10283e"/><rect width="1080" height="406" rx="18" fill="url(#grid)"/>
+  <g font-family="Segoe UI, Tahoma, DejaVu Sans, sans-serif">
+    <text x="34" y="36" fill="#ebc988" font-family="monospace" font-size="13" letter-spacing="2">CYRUSASHA  /  FIELD GUIDE</text>
+    <text x="1046" y="36" text-anchor="end" fill="#bdd5e6" font-family="monospace" font-size="13">FIG. 01   •   ISSUE ROUTING</text>
+    <text x="34" y="81" font-size="33" fill="#fff" font-weight="700">From a plan to a handoff</text>
+    <text x="1046" y="81" direction="rtl" lang="fa" font-size="30" fill="#fff" font-weight="700">از برنامه‌ریزی تا تحویل کار</text>
+    <path d="M34 105h1012" stroke="#3c586d"/>
+    <g fill="none" stroke="#82b3cb" stroke-width="2" marker-end="url(#tip)">
+      <path d="M213 237h50"/><path d="M444 237h24q13 0 13-13v-44q0-11 12-11h52"/>
+      <path d="M468 237q13 0 13 13v43q0 12 12 12h52"/>
+      <path d="M744 169h28q13 0 13 13v43q0 12 12 12h35"/><path d="M744 305h28q13 0 13-13v-42q0-13 12-13h35"/>
+    </g>
+    <g fill="#17384f" stroke="#557a91"><rect x="34" y="184" width="180" height="106" rx="11"/><rect x="266" y="184" width="178" height="106" rx="11"/><rect x="548" y="123" width="196" height="93" rx="11"/><rect x="548" y="259" width="196" height="93" rx="11"/></g>
+    <rect x="835" y="184" width="211" height="106" rx="11" fill="#ead09a"/>
+    <g text-anchor="middle" font-size="19" font-weight="600" fill="#f4f9fc"><text x="124" y="237">Split &amp; assign</text><text x="355" y="237">Backlog</text><text x="646" y="169">Herdr session</text><text x="646" y="305">Work sheet</text><text x="940" y="237" fill="#162f42">Human review</text></g>
+    <g text-anchor="middle" font-family="monospace" fill="#a8d5e5" font-size="12" letter-spacing="1.6"><text x="124" y="210">01  /  PLAN</text><text x="355" y="210">02  /  SAVE</text><text x="646" y="145">03A  /  LINKED</text><text x="646" y="281">03B  /  MANUAL</text><text x="940" y="210" fill="#4b4a37">04  /  VERIFY</text></g>
+    <g text-anchor="middle" direction="rtl" lang="fa" fill="#d5e6f0" font-size="17"><text x="124" y="267">تقسیم و واگذاری</text><text x="355" y="267">ثبت بدون اجرا</text><text x="646" y="195">نشست متصل</text><text x="646" y="331">تحویل دستی</text><text x="940" y="267" fill="#293c42">بازبینی انسانی</text></g>
+    <path d="M34 368h1012" stroke="#3c586d"/><text x="34" y="391" font-size="14" fill="#c4d8e5">Release only the subtask that is ready.</text><text x="1046" y="391" direction="rtl" lang="fa" font-size="15" fill="#c4d8e5">فقط زیرکار آماده را شروع کنید.</text>
+  </g>
+</svg>

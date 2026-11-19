@@ -3,193 +3,267 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#173e37" />
-    <title>میز کار تیم | Paperclip × Herdr</title>
+    <meta name="theme-color" content="#10283e" />
+    <title data-i18n="app.title">میز کار تیم · Paperclip × Herdr</title>
+    <link rel="icon" type="image/png" href="/brand/desk-mark.png" />
     <link rel="stylesheet" href="/desk.css" />
+    <script defer src="/i18n.js"></script>
     <script defer src="/desk.js"></script>
   </head>
   <body>
     <header class="top">
       <div class="wrap top-inner">
         <div class="brand">
-          <span class="brand-mark" aria-hidden="true"
-            ><svg viewBox="0 0 32 32">
-              <path d="m10 20 9-9a3 3 0 0 1 4 4L12 26a6 6 0 0 1-8-8L17 5a6 6 0 0 1 9 9l-9 9" /></svg
-          ></span>
-          <div><b>میز کار تیم</b><small dir="ltr">PAPERCLIP × HERDR</small></div>
+          <img class="brand-mark" src="/brand/desk-mark.png" width="48" height="48" alt="CyrusAsha" />
+          <div>
+            <small dir="ltr">CYRUSASHA &nbsp;/&nbsp; PAPERCLIP × HERDR</small
+            ><b data-i18n="app.name">میز کار تیم</b>
+          </div>
         </div>
         <div class="top-tools">
-          <span id="health" class="pill">در حال اتصال…</span
-          ><button id="refresh" class="icon-btn" aria-label="تازه‌سازی" title="تازه‌سازی">↻</button>
+          <span id="health" class="pill">در حال اتصال…</span>
+          <button
+            id="refresh"
+            class="icon-btn"
+            type="button"
+            data-i18n-aria="app.refresh"
+            data-i18n-title="app.refresh"
+            aria-label="تازه‌سازی"
+            title="تازه‌سازی"
+          >
+            ↻
+          </button>
+          <div
+            class="languages"
+            role="group"
+            dir="ltr"
+            data-i18n-aria="app.language"
+            aria-label="زبان رابط کاربری"
+          >
+            <button type="button" data-lang="fa" lang="fa" dir="rtl" aria-pressed="true">فارسی</button>
+            <button type="button" data-lang="en" lang="en" aria-pressed="false">English</button>
+          </div>
         </div>
       </div>
     </header>
     <main class="wrap">
       <div class="workspace">
-        <span class="crumb">فضای کاری</span><span aria-hidden="true"> / </span
-        ><strong id="company">شرکت Paperclip</strong>
+        <span class="crumb" data-i18n="app.workspace">فضای کاری</span><span aria-hidden="true">/</span
+        ><strong id="company" dir="auto">شرکت Paperclip</strong>
       </div>
+      <noscript
+        ><p class="message warn">
+          برای استفاده از میز کار، جاوااسکریپت را فعال کنید. / Enable JavaScript to use the team desk.
+        </p></noscript
+      >
       <div id="notice" class="message warn" role="status" hidden></div>
       <div id="actionFeedback" role="status" hidden></div>
-      <nav class="tabs" aria-label="بخش‌های میز کار">
-        <button data-tab="plan" class="selected" aria-current="page">میز تقسیم کار</button>
-        <button data-tab="team">تیم ایجنت‌ها <span id="agentCount">۰</span></button>
-        <button data-tab="tasks">کارهای شرکت <span id="taskCount">۰</span></button>
+      <nav class="tabs" data-i18n-aria="nav.label" aria-label="بخش‌های میز کار">
+        <button data-tab="plan" class="selected" aria-current="page">
+          <span data-i18n="nav.plan">میز تقسیم کار</span>
+        </button>
+        <button data-tab="team">
+          <span data-i18n="nav.team">تیم ایجنت‌ها</span> <span class="tab-count" id="agentCount">۰</span>
+        </button>
+        <button data-tab="tasks">
+          <span data-i18n="nav.work">کارهای شرکت</span> <span class="tab-count" id="taskCount">۰</span>
+        </button>
       </nav>
-
       <section data-page="plan">
         <div class="hero">
-          <div>
-            <span class="eyebrow light">دفتر برنامه‌ریزی تیم</span>
-            <h1>تقسیم کار، پیش از اجرا</h1>
-            <p>یک هدف بنویسید، آن را به خروجی‌های کوچک تقسیم کنید و برای هر خروجی یک مسئول بگذارید.</p>
+          <div class="hero-copy">
+            <span class="eyebrow light" data-i18n="hero.kicker">۰۱ / میز برنامه‌ریزی</span>
+            <h1 data-i18n="hero.title">تقسیم کار، پیش از اجرا</h1>
+            <p data-i18n="hero.body">
+              یک هدف را به خروجی‌های کوچک تقسیم کنید و برای هر خروجی یک مسئول بگذارید.
+            </p>
           </div>
-          <svg class="diagram" viewBox="0 0 212 114" fill="none" aria-hidden="true">
-            <g stroke="#79b6a4" stroke-width="1.5">
-              <path d="M168 57h-40q-9 0-9-9V26q0-7-8-7H66m53 38H66m53 0v31q0 7-8 7H66" />
-              <rect x="152" y="40" width="40" height="34" rx="8" fill="#d8efc8" />
-              <rect x="18" y="7" width="48" height="24" rx="6" fill="#355b50" />
-              <rect x="18" y="45" width="48" height="24" rx="6" fill="#355b50" />
-              <rect x="18" y="83" width="48" height="24" rx="6" fill="#355b50" />
-            </g>
-            <g fill="#c6e99f">
-              <circle cx="54" cy="19" r="3" />
-              <circle cx="54" cy="57" r="3" />
-              <circle cx="54" cy="95" r="3" />
-            </g>
-            <path d="M28 19h14m-14 38h14m-14 38h14" stroke="#99b4a7" stroke-width="2" />
-            <path d="m164 57 5 5 11-12" stroke="#235442" stroke-width="2.5" />
-          </svg>
+          <figure class="map-figure" aria-hidden="true">
+            <svg class="diagram" viewBox="0 0 274 90" fill="none">
+              <g stroke="#6293ad" stroke-width="1.5">
+                <path
+                  d="M55 45h30q12 0 12-12v-5q0-9 10-9h22m-44 26q12 0 12 12v5q0 9 11 9h21M161 19h13q13 0 13 13v2q0 11 13 11h19m-58 26h13q13 0 13-12v-4q0-10 13-10"
+                />
+                <circle cx="97" cy="45" r="3" fill="#a6dbec" />
+              </g>
+              <rect x="8" y="24" width="48" height="42" rx="9" fill="#16374f" stroke="#7fadc3" />
+              <path
+                d="M22 36h20m-20 7h16m-16 7h12"
+                stroke="#c6e6ed"
+                stroke-width="2.3"
+                stroke-linecap="round"
+              />
+              <g fill="#17354c" stroke="#7797ad">
+                <rect x="127" y="4" width="36" height="30" rx="6" />
+                <rect x="127" y="56" width="36" height="30" rx="6" />
+              </g>
+              <g stroke="#cce7ed" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path class="glyph" d="m136 14 4 4-4 4m8 0h7" />
+                <path d="M138 65h14v12h-14zm3-3h8v5h-8" />
+              </g>
+              <rect x="215" y="26" width="46" height="38" rx="9" fill="#ebcf92" />
+              <path
+                class="glyph"
+                d="m228 45 7 7 13-15"
+                stroke="#293d45"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <figcaption data-i18n="hero.map">نقشهٔ واگذاری</figcaption>
+          </figure>
         </div>
         <div class="layout">
           <article class="panel">
             <div class="section-head">
               <div>
-                <span class="eyebrow">طرح کار</span>
-                <h2>ساخت زیرکارها</h2>
+                <span class="eyebrow" data-i18n="plan.kicker">طرح کار</span>
+                <h2 data-i18n="plan.heading">ساخت زیرکارها</h2>
               </div>
-              <span class="tag">ثبت در Backlog</span>
+              <span class="tag" data-i18n="plan.badge">ثبت در Backlog</span>
             </div>
             <form id="planForm">
               <fieldset id="planFields">
-                <label for="parent">کار اصلی</label
+                <label for="parent" data-i18n="plan.parent">کار اصلی</label
                 ><select id="parent">
                   <option value="">+ ساخت کار اصلی جدید</option>
                 </select>
                 <label id="titleLabel" class="field"
-                  >عنوان کار جدید<input
+                  ><span data-i18n="plan.title">عنوان کار جدید</span
+                  ><input
                     id="planTitle"
+                    dir="auto"
                     maxlength="240"
+                    data-i18n-placeholder="plan.example"
                     placeholder="مثلاً: افزودن جست‌وجو به فهرست مشتریان"
                     required
                 /></label>
                 <div class="divider"></div>
                 <div class="section-head small">
                   <div>
-                    <h3>زیرکار و مسئول</h3>
-                    <p class="hint">هر ردیف یک تیکت جداگانه در Paperclip می‌شود.</p>
+                    <h3 data-i18n="plan.steps">زیرکار و مسئول</h3>
+                    <p class="hint" data-i18n="plan.hint">هر ردیف یک تیکت جداگانه در Paperclip می‌شود.</p>
                   </div>
-                  <button id="template" type="button" class="link">الگوی سه‌مرحله‌ای</button>
+                  <button id="template" type="button" class="link" data-i18n="plan.template">
+                    الگوی سه‌مرحله‌ای
+                  </button>
                 </div>
                 <div id="steps"></div>
-                <button type="button" id="addStep" class="add">＋ افزودن زیرکار</button>
+                <button type="button" id="addStep" class="add" data-i18n="plan.add">+ افزودن زیرکار</button>
               </fieldset>
               <div class="form-actions">
-                <button id="savePlan" class="primary" type="submit">ثبت طرح در Paperclip</button
-                ><button id="discard" class="ghost" type="button" hidden>آزاد کردن فرم</button
-                ><small>ثبت طرح، ایجنت را بیدار نمی‌کند.</small>
+                <button id="savePlan" class="primary" type="submit" disabled>ثبت طرح در Paperclip</button
+                ><button id="discard" class="ghost" type="button" hidden data-i18n="plan.unlock">
+                  آزاد کردن فرم</button
+                ><small data-i18n="plan.noWake">ثبت طرح، ایجنت را بیدار نمی‌کند.</small>
               </div>
             </form>
             <div id="planFeedback" role="status" hidden></div>
           </article>
           <aside>
             <section class="panel">
-              <span class="eyebrow">اعضای شرکت</span>
-              <h2>تیم این میز</h2>
+              <span class="eyebrow" data-i18n="side.members">اعضای شرکت</span>
+              <h2 data-i18n="side.team">تیم این میز</h2>
               <div id="teamPreview" class="roster"></div>
-              <button class="ghost wide" data-go="team">＋ افزودن یا مدیریت ایجنت</button>
+              <button class="ghost wide" data-go="team" data-i18n="side.manage">
+                + افزودن یا مدیریت ایجنت
+              </button>
             </section>
             <section class="guide">
-              <span class="eyebrow">روال پیشنهادی</span>
+              <span class="eyebrow" data-i18n="side.guide">روال پیشنهادی</span>
               <ol>
-                <li><b>تیم را بچینید</b><small>نشست زندهٔ Herdr یا تحویل دستی.</small></li>
-                <li><b>طرح را ثبت کنید</b><small>مسئول هر زیرکار را خودتان انتخاب می‌کنید.</small></li>
-                <li><b>کار را تحویل دهید</b><small>از «کارهای شرکت»، فقط کار آماده را شروع کنید.</small></li>
+                <li>
+                  <b data-i18n="side.one">تیم را بچینید</b
+                  ><small data-i18n="side.oneHint">نشست زندهٔ Herdr یا تحویل دستی.</small>
+                </li>
+                <li>
+                  <b data-i18n="side.two">طرح را ثبت کنید</b
+                  ><small data-i18n="side.twoHint">مسئول هر زیرکار را خودتان انتخاب می‌کنید.</small>
+                </li>
+                <li>
+                  <b data-i18n="side.three">کار را تحویل دهید</b
+                  ><small data-i18n="side.threeHint">از «کارهای شرکت»، فقط کار آماده را شروع کنید.</small>
+                </li>
               </ol>
             </section>
           </aside>
         </div>
       </section>
-
       <section data-page="team" hidden>
         <div class="page-heading">
-          <span class="eyebrow">اعضای شرکت</span>
-          <h1>تیم ایجنت‌ها</h1>
-          <p>این‌ها ایجنت‌های واقعی شرکت در Paperclip هستند، نه فهرست برنامه‌های نصب‌شده.</p>
+          <span class="eyebrow" data-i18n="team.kicker">۰۲ / اعضای شرکت</span>
+          <h1 data-i18n="nav.team">تیم ایجنت‌ها</h1>
+          <p data-i18n="team.intro">این‌ها اعضای شرکت شما در Paperclip هستند، نه فهرست برنامه‌های نصب‌شده.</p>
         </div>
         <div class="layout team-layout">
           <article class="panel">
             <div class="section-head">
-              <h2>ثبت یک ایجنت</h2>
-              <span class="tag">یک‌بار برای هر عضو</span>
+              <h2 data-i18n="team.enroll">ثبت یک ایجنت</h2>
+              <span class="tag" data-i18n="team.once">یک‌بار برای هر عضو</span>
             </div>
             <form id="enrollForm">
               <fieldset id="enrollFields">
                 <label class="field"
-                  >پیش‌تنظیم<select id="preset">
+                  ><span data-i18n="team.preset">پیش‌تنظیم</span
+                  ><select id="preset">
                     <option value="Freebuff">Freebuff</option>
                     <option value="Antigravity">Antigravity</option>
-                    <option value="other">ایجنت دیگر</option>
+                    <option value="other" data-i18n="team.other">ایجنت دیگر</option>
                   </select></label
                 >
                 <label class="field"
-                  >نام در Paperclip<input id="memberName" maxlength="80" value="Freebuff" required dir="auto"
+                  ><span data-i18n="team.name">نام در Paperclip</span
+                  ><input id="memberName" maxlength="80" value="Freebuff" required dir="auto"
                 /></label>
                 <label class="field"
-                  >روش تحویل<select id="mode">
-                    <option value="manual">دستی — کپی برگهٔ کار در برنامه</option>
-                    <option value="agent">متصل — ارسال به ایجنت شناخته‌شده در Herdr</option>
+                  ><span data-i18n="team.method">روش تحویل</span
+                  ><select id="mode">
+                    <option value="manual" data-i18n="team.manual">دستی — کپی برگهٔ کار در برنامه</option>
+                    <option value="agent" data-i18n="team.linked">متصل — نشست Herdr</option>
                   </select></label
                 >
                 <p id="modeHint" class="hint"></p>
                 <div id="targetFields" hidden>
                   <label class="field"
-                    >نشست زندهٔ Herdr<select id="target" dir="auto">
-                      <option value="">یک نشست را انتخاب کنید</option>
+                    ><span data-i18n="team.session">نشست زندهٔ Herdr</span
+                    ><select id="target" dir="auto">
+                      <option value="">انتخاب نشست…</option>
                     </select></label
-                  ><button type="button" id="scan" class="link">↻ یافتن نشست‌ها</button>
+                  ><button type="button" id="scan" class="link" data-i18n="team.scan">↻ یافتن نشست‌ها</button>
                   <p id="targetHint" class="hint" role="status"></p>
                 </div>
-                <button type="submit" class="primary wide" id="enroll">ثبت در شرکت</button>
+                <button type="submit" class="primary wide" id="enroll" data-i18n="team.register" disabled>
+                  ثبت در شرکت
+                </button>
               </fieldset>
             </form>
             <div id="enrollFeedback" role="status" hidden></div>
           </article>
           <div>
             <div class="section-head">
-              <h2>اعضای ثبت‌شده</h2>
-              <button data-go="plan" class="link">رفتن به تقسیم کار ←</button>
+              <h2 data-i18n="team.roster">اعضای ثبت‌شده</h2>
+              <button data-go="plan" class="link" data-i18n="team.toPlan">رفتن به تقسیم کار ←</button>
             </div>
             <div id="agentsGrid" class="cards"></div>
           </div>
         </div>
       </section>
-
       <section data-page="tasks" hidden>
         <div class="page-heading section-head">
           <div>
-            <span class="eyebrow">تابلوی شرکت</span>
-            <h1>کارهای شرکت</h1>
-            <p>مسئول، کار مادر و وضعیت هر زیرکار را اینجا دنبال کنید.</p>
+            <span class="eyebrow" data-i18n="work.kicker">۰۳ / تابلوی شرکت</span>
+            <h1 data-i18n="nav.work">کارهای شرکت</h1>
+            <p data-i18n="work.intro">مسئول، کار مادر و وضعیت هر زیرکار را اینجا دنبال کنید.</p>
           </div>
-          <button class="primary" data-go="plan">＋ طرح جدید</button>
+          <button class="primary" data-go="plan" data-i18n="work.new">+ طرح جدید</button>
         </div>
         <div class="panel">
           <div class="section-head">
-            <h2>کارهای باز</h2>
+            <h2 data-i18n="work.heading">کارهای باز</h2>
             <label class="filter"
-              >مسئول
-              <select id="filter">
+              ><span data-i18n="work.owner">مسئول</span
+              ><select id="filter">
                 <option value="">همهٔ اعضا</option>
               </select></label
             >
@@ -197,17 +271,60 @@
           <div id="ticketsList"></div>
         </div>
       </section>
-      <footer><span>میز کار تیم</span><span dir="ltr">Paperclip / Herdr</span></footer>
+      <footer>
+        <span data-i18n="app.name">میز کار تیم</span
+        ><span dir="ltr">CyrusAsha &nbsp;/&nbsp; Paperclip × Herdr</span>
+      </footer>
     </main>
-    <dialog id="detail">
+    <dialog id="detail" aria-labelledby="detailTitle">
       <div class="section-head">
         <h2 id="detailTitle"></h2>
-        <button id="closeDetail" aria-label="بستن" class="icon-btn">×</button>
+        <button id="closeDetail" data-i18n-aria="dialog.close" aria-label="بستن" class="icon-btn">×</button>
       </div>
       <p id="detailHint" class="hint"></p>
-      <textarea id="detailText" readonly dir="auto" rows="9"></textarea
-      ><button id="copy" class="primary">کپی متن</button>
+      <textarea
+        id="detailText"
+        data-i18n-aria="dialog.text"
+        aria-label="متن برگهٔ کار یا خروجی ترمینال"
+        readonly
+        dir="auto"
+        rows="9"
+      ></textarea
+      ><button id="copy" class="primary" data-i18n="dialog.copy">کپی متن</button>
       <p id="copyHint" class="hint" role="status"></p>
     </dialog>
+    <template id="stepTemplate"
+      ><div class="step">
+        <div class="step-head">
+          <span class="step-num"></span
+          ><button type="button" class="remove" data-i18n="step.remove">حذف</button>
+        </div>
+        <div class="row-fields">
+          <label
+            ><span data-i18n="step.title">عنوان زیرکار</span
+            ><input
+              class="step-title"
+              maxlength="240"
+              required
+              data-i18n-placeholder="step.placeholder"
+              placeholder="خروجی مشخص این مرحله"
+              dir="auto" /></label
+          ><label
+            ><span data-i18n="step.owner">ایجنت مسئول</span
+            ><select class="assignee" required></select
+          ></label>
+        </div>
+        <details>
+          <summary data-i18n="step.notes">شرح و معیار پذیرش (اختیاری)</summary>
+          <textarea
+            class="step-desc"
+            data-i18n-aria="step.description"
+            aria-label="شرح زیرکار"
+            maxlength="3000"
+            rows="2"
+            dir="auto"
+          ></textarea>
+        </details></div
+    ></template>
   </body>
 </html>

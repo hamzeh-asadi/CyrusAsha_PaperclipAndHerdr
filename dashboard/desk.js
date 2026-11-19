@@ -1,77 +1,77 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-const fa = (n) => Number(n).toLocaleString("fa-IR");
-const names = {
-  backlog: "در صف برنامه‌ریزی",
-  todo: "آمادهٔ اجرا",
-  in_progress: "در حال انجام",
-  in_review: "در بازبینی",
-  blocked: "متوقف",
-  done: "پایان‌یافته",
-  cancelled: "لغو",
-  idle: "آزاد",
-  active: "فعال",
-  running: "در حال اجرا",
-  pending_approval: "منتظر تأیید",
-  paused: "مکث",
-  terminated: "خاتمه‌یافته",
-  error: "خطای اجرا",
-};
+const { t, text, copy } = DeskLocale;
 let members = [],
-  liveTargets = [],
   issues = [],
+  liveTargets = [],
   company = null,
   local = false,
-  online = false,
-  loading = false;
+  online = null;
 let pendingPlan = null,
+  loading = false,
   teamBusy = false,
   saving = false,
   scanning = false;
+let targetListState = "initial",
+  outputVersion = 0;
 const inFlight = new Set();
 const eligible = (a) => ["active", "idle", "running"].includes(a.status) && a.assignable !== false;
 const memberFor = (id) => members.find((a) => a.id === id);
 const ref = (i) => i.identifier || i.id;
+const stateName = (value) =>
+  DeskLocale.has("state." + value) ? t("state." + value) : value || t("state.unknown");
 const shortMode = (a) =>
   a.connection?.mode === "manual"
-    ? "تحویل دستی"
+    ? t("team.shortManual")
     : a.connection?.mode === "agent"
       ? `Herdr · ${a.connection.target}`
       : a.adapterType || "Paperclip";
-function el(tag, cls, text) {
-  const node = document.createElement(tag);
-  if (cls) node.className = cls;
-  if (text != null) node.textContent = text;
-  return node;
+function el(tag, cls, value) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (value != null) n.textContent = text(value);
+  return n;
 }
-function btn(text, fn, cls = "ghost") {
-  const b = el("button", cls, text);
+function btn(label, fn, cls = "ghost") {
+  const b = el("button", cls, label);
   b.type = "button";
   b.addEventListener("click", fn);
   return b;
 }
-function boardLink(title, path) {
-  const a = el("a", "link", title + " ↗");
+function boardLink(label, path) {
+  const a = el("a", "link", t(label) + " ↗");
   a.href = company.boardUrl + "/" + path;
   a.target = "_blank";
   a.rel = "noopener noreferrer";
   return a;
 }
-function message(id, text, error = false) {
-  const n = $(id);
-  n.className = `message${error ? " warn" : ""}`;
-  n.textContent = text;
-  n.hidden = !text;
+// Keep the semantic copy for visible feedback and dialogs: a language switch can
+// repaint it without replaying a request, clearing an error or rebuilding the form.
+const bindings = new Map();
+function paint(id, binding) {
+  const n = $(id),
+    value = text(binding.value);
+  if (n instanceof HTMLTextAreaElement) {
+    if (n.value !== value) n.value = value;
+  } else n.textContent = value;
+  if (binding.follow)
+    n.append(
+      " ",
+      btn(t("msg.viewWork"), () => go("tasks"), "link"),
+    );
 }
-function empty(text) {
-  return el("div", "empty", text);
+function bind(id, value, follow = false) {
+  const binding = { value, follow };
+  bindings.set(id, binding);
+  paint(id, binding);
+}
+function message(id, value, error = false, follow = false) {
+  $(id).className = `message${error ? " warn" : ""}`;
+  $(id).hidden = !text(value);
+  bind(id, value, follow);
 }
 function status(value) {
-  return el(
-    "span",
-    "status " + (Object.hasOwn(names, value) ? value : ""),
-    names[value] || value || "نامشخص",
-  );
+  return el("span", "status " + (DeskLocale.has("state." + value) ? value : ""), stateName(value));
 }
 function person(a) {
   const row = el("div", "person"),
@@ -84,11 +84,12 @@ function person(a) {
       .join(""),
   );
   av.setAttribute("aria-hidden", "true");
-  info.append(el("b", "", a.name), el("small", "", shortMode(a)));
+  const name = el("b", "", a.name);
+  name.dir = "auto";
+  info.append(name, el("small", "", shortMode(a)));
   row.append(av, info);
   return row;
 }
-// Only text nodes/Option values carry server data. No agent configuration, credentials or drafts in browser storage.
 function options(select, choices, placeholder) {
   const signature = JSON.stringify([placeholder, choices]);
   if (select.dataset.options === signature) return;
@@ -98,15 +99,24 @@ function options(select, choices, placeholder) {
   select.value = choices.some(([id]) => id === before) ? before : "";
   select.dataset.options = signature;
 }
+const errorCopy = (e) => e.detail ?? e.message;
 async function api(path, data) {
-  const res = await fetch(
-    path,
-    data === undefined
-      ? { cache: "no-store" }
-      : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) },
-  );
-  const value = await res.json();
-  if (!res.ok) throw new Error(value.error || `HTTP ${res.status}`);
+  let res, value;
+  try {
+    res = await fetch(path, {
+      method: data === undefined ? "GET" : "POST",
+      cache: "no-store",
+      headers: {
+        "Accept-Language": document.documentElement.lang,
+        ...(data === undefined ? {} : { "Content-Type": "application/json" }),
+      },
+      body: data === undefined ? undefined : JSON.stringify(data),
+    });
+    value = await res.json();
+  } catch {
+    throw Object.assign(new Error(), { detail: copy("msg.network") });
+  }
+  if (!res.ok) throw Object.assign(new Error(value.error || `HTTP ${res.status}`), { detail: value.i18n });
   return value;
 }
 function go(tab) {
@@ -116,7 +126,7 @@ function go(tab) {
     if (n.dataset.tab === tab) n.setAttribute("aria-current", "page");
     else n.removeAttribute("aria-current");
   });
-  if (tab === "team" && $("mode").value === "agent" && !$("target").dataset.options) scan();
+  if (tab === "team" && $("mode").value === "agent" && targetListState === "initial") scan();
 }
 async function refresh() {
   if (loading) return;
@@ -125,66 +135,68 @@ async function refresh() {
   const errors = [];
   try {
     online = (await api("/health")).paperclip === true;
-    if (!online) throw new Error("Paperclip آماده نیست؛ پنجرهٔ npm start را بررسی کنید.");
-    const [a, t] = await Promise.allSettled([api("/api/agents"), api("/api/tickets")]);
-    if (a.status === "fulfilled") {
-      members = a.value.agents;
-      company = a.value.company;
-      local = a.value.localControl;
+    if (!online) throw Object.assign(new Error(), { detail: copy("msg.offline") });
+    const [roster, tickets] = await Promise.allSettled([api("/api/agents"), api("/api/tickets")]);
+    if (roster.status === "fulfilled") {
+      members = roster.value.agents;
+      company = roster.value.company;
+      local = roster.value.localControl;
     } else {
       members = [];
       company = null;
       local = false;
-      errors.push(a.reason.message);
+      errors.push(errorCopy(roster.reason));
     }
-    if (t.status === "fulfilled") issues = t.value.tickets;
+    if (tickets.status === "fulfilled") issues = tickets.value.tickets;
     else {
       issues = [];
-      errors.push(t.reason.message);
+      errors.push(errorCopy(tickets.reason));
     }
-    if (company && !local)
-      errors.push("حالت فقط‌خواندنی. برای مدیریت، داشبورد را روی رایانهٔ میزبان با آدرس محلی باز کنید.");
+    if (company && !local) errors.push(copy("msg.readOnly"));
   } catch (e) {
     online = false;
     company = null;
     local = false;
     members = [];
     issues = [];
-    errors.push(e.message);
+    errors.push(errorCopy(e));
   } finally {
     loading = false;
     $("refresh").disabled = false;
   }
-  message("notice", [...new Set(errors)].join("\n"), true);
+  const unique = errors.filter((e, i) => errors.findIndex((other) => text(e) === text(other)) === i);
+  message(
+    "notice",
+    unique.flatMap((e, i) => (i ? ["\n", e] : [e])),
+    true,
+  );
   render();
 }
 function render() {
-  $("health").textContent = online ? "Paperclip آنلاین" : "Paperclip در دسترس نیست";
-  $("health").classList.toggle("online", online);
-  $("company").textContent = company?.name || "شرکت Paperclip";
-  $("agentCount").textContent = fa(members.length);
-  $("taskCount").textContent = fa(issues.length);
+  $("health").textContent = t(online == null ? "app.connecting" : online ? "app.online" : "app.offline");
+  $("health").classList.toggle("online", online === true);
+  $("company").textContent = company?.name || t("app.company");
+  $("agentCount").textContent = text(members.length);
+  $("taskCount").textContent = text(issues.length);
   $("teamPreview").replaceChildren(
-    ...(members.length
-      ? members.slice(0, 4).map(person)
-      : [empty("اولین عضو را در «تیم ایجنت‌ها» ثبت کنید.")]),
+    ...(members.length ? members.slice(0, 4).map(person) : [el("div", "empty", t("msg.firstMember"))]),
   );
   const parentWas = $("parent").value;
   options(
     $("parent"),
     issues.map((i) => [i.id, `${ref(i)} · ${i.title}`]),
-    "+ ساخت کار اصلی جدید",
+    t("plan.newParent"),
   );
-  if (parentWas && !$("parent").value && !pendingPlan)
-    message("planFeedback", "کار انتخابی دیگر در فهرست باز نیست. کار اصلی را دوباره بررسی کنید.", true);
+  if (parentWas && !$("parent").value && !pendingPlan) message("planFeedback", copy("msg.parentGone"), true);
   syncParent();
   const choices = members.filter(eligible).map((a) => [a.id, a.name]);
-  document.querySelectorAll(".assignee").forEach((s) => options(s, choices, "انتخاب مسئول…"));
+  document.querySelectorAll(".assignee").forEach((s) => options(s, choices, t("step.select")));
   options(
     $("filter"),
     members.map((a) => [a.id, a.name]),
-    "همهٔ اعضا",
+    t("work.all"),
   );
+  $("savePlan").textContent = t(pendingPlan && !saving ? "msg.retry" : "plan.save");
   $("savePlan").disabled = saving || !local || (!pendingPlan && !choices.length);
   $("enroll").disabled = teamBusy || !local;
   renderTeam();
@@ -195,16 +207,20 @@ function syncParent() {
   $("titleLabel").hidden = existing;
   $("planTitle").required = !existing;
 }
+function numberSteps() {
+  [...$("steps").children].forEach(
+    (r, i) => (r.querySelector(".step-num").textContent = t("step.number", { n: i + 1 })),
+  );
+}
 function addStep(title = "") {
-  if ($("steps").children.length >= 20) return message("planFeedback", "حداکثر ۲۰ زیرکار در هر طرح.", true);
-  const row = el("div", "step");
-  row.innerHTML =
-    '<div class="step-head"><span class="step-num"></span><button type="button" class="remove">حذف</button></div><div class="row-fields"><label>عنوان زیرکار<input class="step-title" maxlength="240" required placeholder="خروجی مشخص این مرحله" dir="auto"></label><label>ایجنت مسئول<select class="assignee" required></select></label></div><details><summary>شرح و معیار پذیرش (اختیاری)</summary><label><textarea class="step-desc" aria-label="شرح زیرکار" maxlength="3000" rows="2" dir="auto"></textarea></label></details>';
+  if ($("steps").children.length >= 20) return message("planFeedback", copy("msg.maxSteps"), true);
+  const row = $("stepTemplate").content.firstElementChild.cloneNode(true);
+  DeskLocale.apply(row);
   row.querySelector(".step-title").value = title;
   options(
     row.querySelector("select"),
     members.filter(eligible).map((a) => [a.id, a.name]),
-    "انتخاب مسئول…",
+    t("step.select"),
   );
   row.querySelector(".remove").onclick = () => {
     row.remove();
@@ -215,17 +231,11 @@ function addStep(title = "") {
   numberSteps();
   return row;
 }
-function numberSteps() {
-  [...$("steps").children].forEach(
-    (r, i) => (r.querySelector(".step-num").textContent = "مرحلهٔ " + fa(i + 1)),
-  );
-}
 function template() {
   const topic = (
     $("parent").value ? issues.find((i) => i.id === $("parent").value)?.title : $("planTitle").value
   )?.trim();
-  if (!topic)
-    return message("planFeedback", "ابتدا عنوان کار اصلی را بنویسید یا یک کار موجود را انتخاب کنید.", true);
+  if (!topic) return message("planFeedback", copy("msg.needParent"), true);
   const rows = [...$("steps").children];
   if (
     rows.length === 1 &&
@@ -234,26 +244,22 @@ function template() {
     !rows[0].querySelector("textarea").value
   )
     rows[0].remove();
-  if ($("steps").children.length > 17)
-    return message("planFeedback", "برای الگوی سه‌مرحله‌ای جا نیست.", true);
-  ["تعریف نیاز و معیار پذیرش", "پیاده‌سازی تغییر", "آزمون و گزارش نتیجه"].forEach((name) =>
-    addStep(name + " — " + topic.slice(0, 160)),
+  if ($("steps").children.length > 17) return message("planFeedback", copy("msg.templateFull"), true);
+  ["template.define", "template.build", "template.test"].forEach((key) =>
+    addStep(t(key) + " — " + topic.slice(0, 160)),
   );
-  message(
-    "planFeedback",
-    "این یک الگوی قابل ویرایش است. عنوان‌ها را متناسب با کار تغییر دهید و مسئول هر ردیف را انتخاب کنید.",
-  );
+  message("planFeedback", copy("msg.template"));
 }
 function unlockPlan() {
   pendingPlan = null;
   $("planFields").disabled = false;
   $("discard").hidden = true;
-  $("savePlan").textContent = "ثبت طرح در Paperclip";
+  $("savePlan").textContent = t("plan.save");
 }
 async function savePlan(event) {
   event.preventDefault();
   if (saving || !local || !company) return;
-  if (!pendingPlan) {
+  if (!pendingPlan)
     pendingPlan = {
       companyId: company.id,
       requestId: crypto.randomUUID(),
@@ -265,12 +271,11 @@ async function savePlan(event) {
         description: r.querySelector("textarea").value,
       })),
     };
-  }
   saving = true;
   $("savePlan").disabled = true;
   $("discard").hidden = true;
   $("planFields").disabled = true;
-  message("planFeedback", "در حال ثبت در Paperclip…");
+  message("planFeedback", copy("msg.saving"));
   try {
     const data = await api("/api/plans", pendingPlan);
     unlockPlan();
@@ -281,55 +286,53 @@ async function savePlan(event) {
     addStep();
     message(
       "planFeedback",
-      `کار اصلی ${ref(data.parent)} و ${fa(data.children.length)} زیرکار در Paperclip ثبت شدند. هنوز هیچ کاری اجرا نشده است. `,
-    );
-    $("planFeedback").append(btn("دیدن کارها ←", () => go("tasks"), "link"));
-  } catch (e) {
-    message(
-      "planFeedback",
-      e.message + "\nتلاش مجدد همین درخواست را ادامه می‌دهد. پیش از تغییر طرح، کارهای ثبت‌شده را بررسی کنید.",
+      copy("msg.saved", { id: ref(data.parent), count: data.children.length }),
+      false,
       true,
     );
+  } catch (e) {
+    message("planFeedback", [errorCopy(e), "\n", copy("msg.retryHelp")], true);
     $("discard").hidden = false;
-    $("savePlan").textContent = "تلاش مجدد همین طرح";
+    $("savePlan").textContent = t("msg.retry");
   } finally {
     saving = false;
     $("savePlan").disabled = !local;
     await refresh();
   }
 }
-function modeChanged() {
+function renderMode() {
   const live = $("mode").value === "agent";
   $("targetFields").hidden = !live;
   $("target").required = live;
-  $("modeHint").textContent = live
-    ? "ایجنت را داخل Herdr اجرا کنید (برای Antigravity، دستور agy). فقط نشست شناخته‌شده را انتخاب کنید؛ میز کار برنامه‌ای نصب یا اجرا نمی‌کند."
-    : "برای Freebuff یا هر ابزار دیگر: آن را در پنجرهٔ خودش در Herdr باز کنید و برگهٔ کار را آنجا بچسبانید. میز کار هیچ کلیدی به پنجره نمی‌فرستد.";
-  if (live && local) scan();
+  $("modeHint").textContent = t(live ? "team.linkedHint" : "team.manualHint");
+  options(
+    $("target"),
+    liveTargets.map((s) => [s.target, `${s.target} · ${s.kind || "Herdr"} · ${stateName(s.status)}`]),
+    t(targetListState === "failed" ? "team.noSession" : "team.selectSession"),
+  );
+}
+function modeChanged() {
+  renderMode();
+  if ($("mode").value === "agent" && local) scan();
 }
 async function scan() {
   if (scanning || !local) return;
   scanning = true;
   $("scan").disabled = true;
-  $("targetHint").textContent = "در حال خواندن نشست‌ها…";
+  bind("targetHint", copy("team.scanning"));
   try {
     const { targets } = await api("/api/herdr/targets");
     liveTargets = targets;
-    options(
-      $("target"),
-      targets.map((t) => [t.target, `${t.target} · ${t.kind || "Herdr"} · ${names[t.status] || t.status}`]),
-      "انتخاب نشست…",
-    );
-    $("targetHint").textContent = targets.length
-      ? "نشست متعلق به همین عضو را انتخاب کنید."
-      : "نشست شناخته‌شده‌ای پیدا نشد. بعد از اجرای CLI دوباره جست‌وجو کنید یا تحویل دستی را برگزینید.";
+    targetListState = "loaded";
+    bind("targetHint", copy(targets.length ? "team.match" : "team.noDetected"));
   } catch (e) {
     liveTargets = [];
-    options($("target"), [], "بدون نشست");
-    $("targetHint").textContent = e.message;
+    targetListState = "failed";
+    bind("targetHint", errorCopy(e));
   } finally {
     scanning = false;
     $("scan").disabled = false;
+    renderMode();
   }
 }
 async function enroll(event) {
@@ -342,25 +345,23 @@ async function enroll(event) {
     target: $("mode").value === "agent" ? $("target").value : "",
   };
   if (data.mode === "agent") {
-    const selected = liveTargets.find((t) => t.target === data.target);
-    if (!selected) return message("enrollFeedback", "نشست زنده را دوباره انتخاب کنید.", true);
+    const selected = liveTargets.find((s) => s.target === data.target);
+    if (!selected) return message("enrollFeedback", copy("team.pickAgain"), true);
     data.kind = selected.kind;
     data.terminal = selected.terminal;
   }
   teamBusy = true;
   $("enrollFields").disabled = true;
-  message("enrollFeedback", "در حال ثبت عضو…");
+  message("enrollFeedback", copy("team.saving"));
   try {
     const r = await api("/api/team/enroll", data);
-    message(
-      "enrollFeedback",
-      `${r.agent.name}: ${r.existing ? "از قبل عضو همین شرکت است." : "در Paperclip ثبت شد."} ` +
-        (r.needsApproval || r.agent.status === "pending_approval"
-          ? "در Paperclip، بخش Approvals، استخدام را تأیید کنید؛ سپس می‌توانید کار واگذار کنید."
-          : "وقتی وضعیت عضو فعال یا آزاد شد، در میز تقسیم کار قابل انتخاب است."),
-    );
+    message("enrollFeedback", [
+      copy(r.existing ? "team.exists" : "team.saved", { name: r.agent.name }),
+      " ",
+      copy(r.needsApproval || r.agent.status === "pending_approval" ? "team.approveHint" : "team.readyHint"),
+    ]);
   } catch (e) {
-    message("enrollFeedback", e.message, true);
+    message("enrollFeedback", errorCopy(e), true);
   } finally {
     teamBusy = false;
     $("enrollFields").disabled = false;
@@ -371,7 +372,7 @@ function renderTeam() {
   const grid = $("agentsGrid");
   grid.replaceChildren();
   if (!members.length) {
-    grid.append(empty("هنوز عضوی در دسترس نیست. بعد از ثبت، نام و وضعیت تأیید اینجا نمایش داده می‌شود."));
+    grid.append(el("div", "empty", t("team.empty")));
     return;
   }
   for (const a of members) {
@@ -379,11 +380,10 @@ function renderTeam() {
       head = el("div", "section-head");
     head.append(person(a), status(a.status));
     card.append(head);
-    if (a.status === "pending_approval")
-      card.append(el("small", "", "در انتظار تأیید استخدام در Paperclip ← Approvals"));
+    if (a.status === "pending_approval") card.append(el("small", "", t("team.awaiting")));
     const actions = el("div", "task-actions");
     actions.append(
-      btn("کارهای این عضو", () => {
+      btn(t("team.memberWork"), () => {
         $("filter").value = a.id;
         renderTasks();
         go("tasks");
@@ -392,22 +392,22 @@ function renderTeam() {
     if (company?.boardUrl)
       actions.append(
         a.status === "pending_approval"
-          ? boardLink("تأیید استخدام", "approvals/pending")
-          : boardLink("عضو در Paperclip", "agents/" + encodeURIComponent(a.id)),
+          ? boardLink("team.approvals", "approvals/pending")
+          : boardLink("team.board", "agents/" + encodeURIComponent(a.id)),
       );
     if (a.connection?.mode !== "manual" && local) {
-      const wake = btn("بیدارباش", async () => {
-        if (!confirm(`برای ${a.name} در Paperclip درخواست اجرا ارسال شود؟`)) return;
-        await action(
-          "wake:" + a.id,
-          () => api(`/api/agents/${encodeURIComponent(a.id)}/heartbeat/invoke`, {}),
-          "درخواست بیدارباش به Paperclip ارسال شد.",
-        );
+      const wake = btn(t("team.wake"), () => {
+        if (confirm(t("team.confirmWake", { name: a.name })))
+          action(
+            "wake:" + a.id,
+            () => api(`/api/agents/${encodeURIComponent(a.id)}/heartbeat/invoke`, {}),
+            copy("team.woke"),
+          );
       });
       wake.disabled = !eligible(a) || inFlight.has("wake:" + a.id);
       actions.append(
         wake,
-        btn("خروجی Herdr", () => showOutput(a)),
+        btn(t("team.output"), () => showOutput(a)),
       );
     }
     card.append(actions);
@@ -415,41 +415,41 @@ function renderTeam() {
   }
 }
 function dialog(title, hint, value) {
-  $("detailTitle").textContent = title;
-  $("detailHint").textContent = hint;
-  $("detailText").value = value;
-  $("copyHint").textContent = "";
+  bind("detailTitle", title);
+  bind("detailHint", hint);
+  bind("detailText", value);
+  bind("copyHint", "");
   if (!$("detail").open) $("detail").showModal();
 }
 async function showOutput(a) {
-  dialog(a.name, "خروجی اخیر Herdr", "در حال خواندن…");
+  dialog(a.name, copy("dialog.output"), copy("dialog.loading"));
   const req = ++outputVersion;
   try {
     const r = await api(`/api/agents/${encodeURIComponent(a.id)}/output`);
     if (req === outputVersion)
-      $("detailText").value = r.success ? r.output || "خروجی خالی" : r.error || "خروجی در دسترس نیست.";
+      bind(
+        "detailText",
+        r.success ? r.output || copy("dialog.empty") : r.error || copy("dialog.unavailable"),
+      );
   } catch (e) {
-    if (req === outputVersion) $("detailText").value = e.message;
+    if (req === outputVersion) bind("detailText", errorCopy(e));
   }
 }
-let outputVersion = 0;
 function sheet(i) {
   ++outputVersion;
   const parent = issues.find((p) => p.id === i.parentId),
     a = memberFor(i.assigneeAgentId);
   dialog(
-    "برگهٔ تحویل کار",
-    a?.connection?.mode === "manual"
-      ? "متن را کپی کنید و در خودِ برنامهٔ ایجنت (نه خط فرمان شل) بچسبانید."
-      : "متن این تیکت برای بررسی یا تحویل دستی:",
+    copy("dialog.sheet"),
+    copy(a?.connection?.mode === "manual" ? "dialog.manual" : "dialog.read"),
     [
       `${ref(i)} · ${i.title}`,
-      parent ? "کار اصلی: " + parent.title : "",
-      a ? "مسئول: " + a.name : "",
-      i.description || "",
+      parent && copy("dialog.parent", { name: parent.title }),
+      a && copy("work.ownerLine", { name: a.name }),
+      i.description,
     ]
       .filter(Boolean)
-      .join("\n\n"),
+      .flatMap((line, idx) => (idx ? ["\n\n", line] : [line])),
   );
 }
 async function action(key, fn, success) {
@@ -461,7 +461,7 @@ async function action(key, fn, success) {
     await fn();
     message("actionFeedback", success);
   } catch (e) {
-    message("actionFeedback", e.message, true);
+    message("actionFeedback", errorCopy(e), true);
   } finally {
     inFlight.delete(key);
     await refresh();
@@ -469,13 +469,12 @@ async function action(key, fn, success) {
 }
 function advance(i, op) {
   const manual = memberFor(i.assigneeAgentId)?.connection?.mode === "manual";
-  const prompt =
-    op === "review"
-      ? "این کار دستی آمادهٔ بازبینی است؟"
-      : manual
-        ? "این کار را دستی شروع می‌کنید؟ متنی به ترمینال ارسال نمی‌شود."
-        : "این کار از Backlog وارد Todo شود؟ Paperclip ممکن است ایجنت مسئول را اجرا کند.";
-  if (!confirm(prompt)) return;
+  if (
+    !confirm(
+      t(op === "review" ? "work.confirmReview" : manual ? "work.confirmManual" : "work.confirmRelease"),
+    )
+  )
+    return;
   action(
     i.id,
     () =>
@@ -485,11 +484,7 @@ function advance(i, op) {
         assigneeAgentId: i.assigneeAgentId,
         action: op,
       }),
-    op === "review"
-      ? "درخواست بازبینی انسانی روی تیکت ثبت شد. از «بازبینی در Paperclip» نتیجه را بررسی کنید."
-      : manual
-        ? "کار دستی شروع شد؛ برگهٔ کار را کپی کنید."
-        : "کار به صف اجرای مسئول رفت. وضعیت واقعی را در Paperclip پیگیری کنید.",
+    copy(op === "review" ? "work.reviewed" : manual ? "work.started" : "work.released"),
   );
 }
 function renderTasks() {
@@ -497,36 +492,44 @@ function renderTasks() {
     rows = issues.filter((i) => !$("filter").value || i.assigneeAgentId === $("filter").value);
   list.replaceChildren();
   if (!rows.length) {
-    list.append(empty("در این نما کار بازی وجود ندارد."));
+    list.append(el("div", "empty", t("work.empty")));
     return;
   }
   for (const i of rows) {
     const a = memberFor(i.assigneeAgentId),
       parent = issues.find((p) => p.id === i.parentId);
     const card = el("article", "task"),
-      head = el("div", "section-head");
-    head.append(el("h3", "", i.title), status(i.status));
+      head = el("div", "section-head"),
+      title = el("h3", "", i.title);
+    title.dir = "auto";
+    head.append(title, status(i.status));
     card.append(
       head,
       el(
         "small",
         "",
-        `${ref(i)}  ·  مسئول: ${a?.name || "واگذار نشده"}${i.parentId ? "  ·  کار مادر: " + (parent?.title || i.parentId) : ""}`,
+        [
+          ref(i),
+          t("work.ownerLine", { name: a?.name || t("work.unassigned") }),
+          i.parentId ? t("work.parentLine", { name: parent?.title || i.parentId }) : "",
+        ]
+          .filter(Boolean)
+          .join("  ·  "),
       ),
     );
     const actions = el("div", "task-actions");
-    actions.append(btn("برگهٔ کار", () => sheet(i)));
+    actions.append(btn(t("work.sheet"), () => sheet(i)));
     if (company?.boardUrl)
       actions.append(
         boardLink(
-          i.status === "in_review" ? "بازبینی در Paperclip" : "تیکت در Paperclip",
+          i.status === "in_review" ? "work.boardReview" : "work.boardIssue",
           "issues/" + encodeURIComponent(ref(i)),
         ),
       );
     if (!pendingPlan)
       actions.append(
         btn(
-          "تقسیم این کار",
+          t("work.split"),
           () => {
             $("parent").value = i.id;
             syncParent();
@@ -543,7 +546,7 @@ function renderTasks() {
     ) {
       const review = i.status === "in_progress";
       const b = btn(
-        review ? "آمادهٔ بازبینی" : a.connection?.mode === "manual" ? "شروع دستی" : "ارسال به صف اجرا",
+        t(review ? "work.toReview" : a.connection?.mode === "manual" ? "work.startManual" : "work.release"),
         () => advance(i, review ? "review" : "release"),
         "primary",
       );
@@ -554,44 +557,67 @@ function renderTasks() {
     list.append(card);
   }
 }
-
-document
-  .querySelectorAll("[data-tab],[data-go]")
-  .forEach((b) => b.addEventListener("click", () => go(b.dataset.tab || b.dataset.go)));
-$("refresh").onclick = refresh;
-$("parent").onchange = syncParent;
-$("addStep").onclick = () => addStep()?.querySelector("input").focus();
-$("template").onclick = template;
-$("discard").onclick = () => {
-  if (confirm("ممکن است بعضی ردیف‌ها ثبت شده باشند. قبل از ارسال یک طرح جدید، آن‌ها را بررسی کرده‌اید؟")) {
-    unlockPlan();
-    message("planFeedback", "فرم آزاد شد. برای ادامهٔ یک کار ثبت‌شده، آن را به عنوان کار اصلی انتخاب کنید.");
-  }
-};
-$("planForm").onsubmit = savePlan;
-$("preset").onchange = () => {
-  const p = $("preset").value;
-  $("memberName").value = p === "other" ? "" : p;
-  $("mode").value = p === "Antigravity" ? "agent" : "manual";
-  modeChanged();
-};
-$("mode").onchange = modeChanged;
-$("scan").onclick = scan;
-$("enrollForm").onsubmit = enroll;
-$("filter").onchange = renderTasks;
-$("closeDetail").onclick = () => $("detail").close();
-$("copy").onclick = async () => {
+async function start() {
   try {
-    await navigator.clipboard.writeText($("detailText").value);
-    $("copyHint").textContent = "کپی شد.";
+    await DeskLocale.load();
   } catch {
-    $("detailText").select();
-    $("copyHint").textContent = "متن انتخاب شد؛ Ctrl+C را بزنید.";
+    message(
+      "notice",
+      "بارگذاری زبان ناموفق بود؛ صفحه را تازه کنید. / Could not load the language file. Reload the page.",
+      true,
+    );
+    return;
   }
-};
-addStep();
-modeChanged();
-refresh();
-setInterval(() => {
-  if (!document.hidden) refresh();
-}, 5000);
+  document.querySelectorAll("[data-lang]").forEach(
+    (b) =>
+      (b.onclick = () => {
+        DeskLocale.select(b.dataset.lang);
+        renderMode();
+        numberSteps();
+        render();
+        bindings.forEach((binding, id) => paint(id, binding));
+      }),
+  );
+  document
+    .querySelectorAll("[data-tab],[data-go]")
+    .forEach((b) => b.addEventListener("click", () => go(b.dataset.tab || b.dataset.go)));
+  $("refresh").onclick = refresh;
+  $("parent").onchange = syncParent;
+  $("addStep").onclick = () => addStep()?.querySelector("input").focus();
+  $("template").onclick = template;
+  $("discard").onclick = () => {
+    if (confirm(t("msg.unlockConfirm"))) {
+      unlockPlan();
+      message("planFeedback", copy("msg.unlocked"));
+    }
+  };
+  $("planForm").onsubmit = savePlan;
+  $("preset").onchange = () => {
+    const p = $("preset").value;
+    $("memberName").value = p === "other" ? "" : p;
+    $("mode").value = p === "Antigravity" ? "agent" : "manual";
+    modeChanged();
+  };
+  $("mode").onchange = modeChanged;
+  $("scan").onclick = scan;
+  $("enrollForm").onsubmit = enroll;
+  $("filter").onchange = renderTasks;
+  $("closeDetail").onclick = () => $("detail").close();
+  $("copy").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText($("detailText").value);
+      bind("copyHint", copy("dialog.copied"));
+    } catch {
+      $("detailText").select();
+      bind("copyHint", copy("dialog.selectCopy"));
+    }
+  };
+  addStep();
+  renderMode();
+  render();
+  refresh();
+  setInterval(() => {
+    if (!document.hidden) refresh();
+  }, 5000);
+}
+start();
