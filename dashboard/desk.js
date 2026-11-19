@@ -16,34 +16,44 @@ let pendingPlan = null,
   scanning = false;
 let targetListState = "initial",
   outputVersion = 0;
+// One guarded action per key at a time; the same set disables its buttons.
 const inFlight = new Set();
+// Mirror team_desk.eligible so the browser never offers an unassignable member.
 const eligible = (a) => ["active", "idle", "running"].includes(a.status) && a.assignable !== false;
+// Native Hermes adapters have no Herdr pane to read.
 const isHermes = (a) => ["hermes_local", "hermes_gateway"].includes(a.adapterType);
+// Look up one roster member by id.
 const memberFor = (id) => members.find((a) => a.id === id);
+// Human-facing issue reference: the identifier when present, else the id.
 const ref = (i) => i.identifier || i.id;
 // Mirror team_desk.title_marker for immediate feedback on unsaved input. A
 // question at the end of a sentence (including Persian ؟) is not a lost word.
 const unreadableTitle = (title) => /\uFFFD|(?:^|\s)\?{3,}(?=\s|$)/u.test(title);
+// Localized lifecycle label, falling back to the raw value.
 const stateName = (value) =>
   DeskLocale.has("state." + value) ? t("state." + value) : value || t("state.unknown");
+// One-line handoff summary: manual, Herdr session/target, or adapter name.
 const shortMode = (a) =>
   a.connection?.mode === "manual"
     ? t("team.shortManual")
     : a.connection?.mode === "agent"
       ? ["Herdr", a.connection.session, a.connection.target].filter(Boolean).join(" · ")
       : a.adapterType || "Paperclip";
+// Create a text-only element; user content is never parsed as markup.
 function el(tag, cls, value) {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
   if (value != null) n.textContent = text(value);
   return n;
 }
+// Create a button wired to one handler.
 function btn(label, fn, cls = "ghost") {
   const b = el("button", cls, label);
   b.type = "button";
   b.addEventListener("click", fn);
   return b;
 }
+// Outbound link to the real Paperclip board, opened in a new tab.
 function boardLink(label, path) {
   const a = el("a", "link", t(label) + " ↗");
   a.href = company.boardUrl + "/" + path;
@@ -54,6 +64,7 @@ function boardLink(label, path) {
 // Keep the semantic copy for visible feedback and dialogs: a language switch can
 // repaint it without replaying a request, clearing an error or rebuilding the form.
 const bindings = new Map();
+// Render one bound message; a language switch repaints without a request.
 function paint(id, binding) {
   const n = $(id),
     value = text(binding.value);
@@ -66,19 +77,23 @@ function paint(id, binding) {
       btn(t("msg.viewWork"), () => go("tasks"), "link"),
     );
 }
+// Remember the semantic copy for an element and paint it now.
 function bind(id, value, follow = false) {
   const binding = { value, follow };
   bindings.set(id, binding);
   paint(id, binding);
 }
+// Show or hide one bound message line, with a warning style when needed.
 function message(id, value, error = false, follow = false) {
   $(id).className = `message${error ? " warn" : ""}`;
   $(id).hidden = !text(value);
   bind(id, value, follow);
 }
+// Status pill for a lifecycle or agent state.
 function status(value) {
   return el("span", "status " + (DeskLocale.has("state." + value) ? value : ""), stateName(value));
 }
+// Avatar, name and handoff summary for one member.
 function person(a) {
   const row = el("div", "person"),
     info = el("div");
@@ -96,6 +111,7 @@ function person(a) {
   row.append(av, info);
   return row;
 }
+// Fill a select once and keep the current value while it still exists.
 function options(select, choices, placeholder) {
   const signature = JSON.stringify([placeholder, choices]);
   if (select.dataset.options === signature) return;
@@ -105,7 +121,9 @@ function options(select, choices, placeholder) {
   select.value = choices.some(([id]) => id === before) ? before : "";
   select.dataset.options = signature;
 }
+// Prefer the structured copy a failed request returned.
 const errorCopy = (e) => e.detail ?? e.message;
+// Call one desk endpoint and raise a localized error on failure.
 async function api(path, data) {
   let res, value;
   try {
@@ -125,6 +143,7 @@ async function api(path, data) {
   if (!res.ok) throw Object.assign(new Error(value.error || `HTTP ${res.status}`), { detail: value.i18n });
   return value;
 }
+// Switch the visible page and mark the active tab.
 function go(tab) {
   document.querySelectorAll("[data-page]").forEach((n) => (n.hidden = n.dataset.page !== tab));
   document.querySelectorAll("[data-tab]").forEach((n) => {
@@ -134,6 +153,7 @@ function go(tab) {
   });
   if (tab === "team" && $("mode").value === "agent" && targetListState === "initial") scan();
 }
+// Reload the roster and the issues, then repaint every view.
 async function refresh() {
   if (loading) return;
   loading = true;
@@ -178,6 +198,7 @@ async function refresh() {
   );
   render();
 }
+// Paint every control from the current state.
 function render() {
   $("health").textContent = t(online == null ? "app.connecting" : online ? "app.online" : "app.offline");
   $("health").classList.toggle("online", online === true);
@@ -208,6 +229,7 @@ function render() {
   renderTeam();
   renderTasks();
 }
+// Warning block for an unreadable issue title, with a link to the board.
 function titleNotice(issue) {
   const note = el("div", "message warn", t("work.titleWarning", { id: ref(issue) }));
   // Offer an example only when the project name is the only legible text.
@@ -221,6 +243,7 @@ function titleNotice(issue) {
     note.append(" ", boardLink("work.editTitle", "issues/" + encodeURIComponent(ref(issue))));
   return note;
 }
+// Show either the new-parent title input or the chosen parent's warning.
 function syncParent() {
   const existing = !!$("parent").value;
   $("titleLabel").hidden = existing;
@@ -230,11 +253,13 @@ function syncParent() {
   warning.hidden = !issue?.titleWarning;
   warning.replaceChildren(...(issue?.titleWarning ? [titleNotice(issue)] : []));
 }
+// Renumber the visible subtask rows after an add or remove.
 function numberSteps() {
   [...$("steps").children].forEach(
     (r, i) => (r.querySelector(".step-num").textContent = t("step.number", { n: i + 1 })),
   );
 }
+// Append one subtask row owned by an eligible member (maximum 20).
 function addStep(title = "") {
   if ($("steps").children.length >= 20) return message("planFeedback", copy("msg.maxSteps"), true);
   const row = $("stepTemplate").content.firstElementChild.cloneNode(true);
@@ -254,6 +279,7 @@ function addStep(title = "") {
   numberSteps();
   return row;
 }
+// Fill the editable three-step template from the chosen topic.
 function template() {
   const parent = issues.find((i) => i.id === $("parent").value);
   const topic = ($("parent").value ? parent?.title : $("planTitle").value)?.trim();
@@ -274,12 +300,14 @@ function template() {
   ["template.define", "template.build", "template.test"].forEach((key) => addStep(t(key) + " — " + excerpt));
   message("planFeedback", copy("msg.template"));
 }
+// Drop the retry state after a confirmed save or discard.
 function unlockPlan() {
   pendingPlan = null;
   $("planFields").disabled = false;
   $("discard").hidden = true;
   $("savePlan").textContent = t("plan.save");
 }
+// Validate every row, then create the plan once and keep a retry handle.
 async function savePlan(event) {
   event.preventDefault();
   if (saving || !local || !company) return;
@@ -333,11 +361,13 @@ async function savePlan(event) {
     await refresh();
   }
 }
+// Enable the enrol form only for a local operator with a loaded company.
 function updateEnroll() {
   const unselected =
     $("mode").value === "agent" && (scanning || !$("target").value || targetScope !== $("namespace").value);
   $("enroll").disabled = teamBusy || !local || unselected;
 }
+// Show the Herdr target fields only for a linked member.
 function renderMode() {
   const live = $("mode").value === "agent";
   $("targetFields").hidden = !live;
@@ -358,10 +388,12 @@ function renderMode() {
   $("useManual").hidden = scanning || !["failed", "empty"].includes(targetListState);
   updateEnroll();
 }
+// Clear the target selection whenever the handoff mode changes.
 function modeChanged() {
   renderMode();
   if ($("mode").value === "agent" && local) scan();
 }
+// Discover live Herdr sessions and their agents, never caching a target.
 async function scan(refreshSessions = true) {
   if (scanning || !local) return;
   scanning = true;
@@ -407,6 +439,7 @@ async function scan(refreshSessions = true) {
     renderMode();
   }
 }
+// Register a manual or linked member and surface a pending approval.
 async function enroll(event) {
   event.preventDefault();
   if (teamBusy || !local || !company) return;
@@ -442,6 +475,7 @@ async function enroll(event) {
     await refresh();
   }
 }
+// Draw one card per member with only the actions allowed for it.
 function renderTeam() {
   const grid = $("agentsGrid");
   grid.replaceChildren();
@@ -496,6 +530,7 @@ function renderTeam() {
     grid.append(card);
   }
 }
+// Fill and open the single shared detail dialog.
 function dialog(title, hint, value) {
   bind("detailTitle", title);
   bind("detailHint", hint);
@@ -503,6 +538,7 @@ function dialog(title, hint, value) {
   bind("copyHint", "");
   if (!$("detail").open) $("detail").showModal();
 }
+// Read a member's recent terminal output into the detail dialog.
 async function showOutput(a) {
   dialog(a.name, copy("dialog.output"), copy("dialog.loading"));
   const req = ++outputVersion;
@@ -517,6 +553,7 @@ async function showOutput(a) {
     if (req === outputVersion) bind("detailText", errorCopy(e));
   }
 }
+// Build the copy-ready work sheet for one manual or read-only task.
 function sheet(i) {
   ++outputVersion;
   const parent = issues.find((p) => p.id === i.parentId),
@@ -534,6 +571,7 @@ function sheet(i) {
       .flatMap((line, idx) => (idx ? ["\n\n", line] : [line])),
   );
 }
+// Run one guarded action, report its result and refresh the views.
 async function action(key, fn, success) {
   if (inFlight.has(key)) return;
   inFlight.add(key);
@@ -549,6 +587,7 @@ async function action(key, fn, success) {
     await refresh();
   }
 }
+// Confirm, then release a task to the queue or park a manual one for review.
 function advance(i, op) {
   const manual = memberFor(i.assigneeAgentId)?.connection?.mode === "manual";
   if (
@@ -569,6 +608,7 @@ function advance(i, op) {
     copy(op === "review" ? "work.reviewed" : manual ? "work.started" : "work.released"),
   );
 }
+// Draw the company work list with the actions allowed for each issue.
 function renderTasks() {
   const list = $("ticketsList"),
     rows = issues.filter((i) => !$("filter").value || i.assigneeAgentId === $("filter").value);
@@ -640,6 +680,7 @@ function renderTasks() {
     list.append(card);
   }
 }
+// Load the copy catalog, fetch the first snapshot and wire the controls.
 async function start() {
   try {
     await DeskLocale.load();

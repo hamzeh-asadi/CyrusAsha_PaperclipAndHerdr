@@ -11,6 +11,7 @@
     <script defer src="/desk.js"></script>
   </head>
   <body>
+    <!-- Header: brand, language switch and the local-only notice. -->
     <header class="top">
       <div class="wrap top-inner">
         <div class="brand">
@@ -46,6 +47,7 @@
         </div>
       </div>
     </header>
+    <!-- Main shell: tab navigation plus the three desk pages. -->
     <main class="wrap">
       <div class="workspace">
         <span class="crumb" data-i18n="app.workspace">فضای کاری</span><span aria-hidden="true">/</span
@@ -58,6 +60,7 @@
       >
       <div id="notice" class="message warn" role="status" hidden></div>
       <div id="actionFeedback" role="status" hidden></div>
+      <!-- Tabs: plan (planner), team (agents) and tasks (company work). -->
       <nav class="tabs" data-i18n-aria="nav.label" aria-label="بخش‌های میز کار">
         <button data-tab="plan" class="selected" aria-current="page">
           <span data-i18n="nav.plan">میز تقسیم کار</span>
@@ -69,6 +72,7 @@
           <span data-i18n="nav.work">کارهای شرکت</span> <span class="tab-count" id="taskCount">۰</span>
         </button>
       </nav>
+      <!-- Page: task planner. Saving creates assigned issues in backlog only. -->
       <section data-page="plan">
         <div class="hero">
           <div class="hero-copy">
@@ -191,6 +195,7 @@
           </aside>
         </div>
       </section>
+      <!-- Page: agent team. Register a member, link a live Herdr target, read output. -->
       <section data-page="team" hidden>
         <div class="page-heading">
           <span class="eyebrow" data-i18n="team.kicker">۰۲ / اعضای شرکت</span>
@@ -257,6 +262,7 @@
           </div>
         </div>
       </section>
+      <!-- Page: company work. Release a ready task or park a manual one for review. -->
       <section data-page="tasks" hidden>
         <div class="page-heading section-head">
           <div>
@@ -284,6 +290,7 @@
         ><span dir="ltr">CyrusAsha &nbsp;/&nbsp; Paperclip × Herdr</span>
       </footer>
     </main>
+    <!-- Shared detail dialog: terminal output, work sheet and hints. -->
     <dialog id="detail" aria-labelledby="detailTitle">
       <div class="section-head">
         <h2 id="detailTitle"></h2>
@@ -301,6 +308,7 @@
       ><button id="copy" class="primary" data-i18n="dialog.copy">کپی متن</button>
       <p id="copyHint" class="hint" role="status"></p>
     </dialog>
+    <!-- Cloned once per planner subtask row. -->
     <template id="stepTemplate"
       ><div class="step">
         <div class="step-head">

@@ -15,7 +15,10 @@ from desk_text import Message
 
 
 class PaperclipError(RuntimeError):
+    """An upstream or desk error that already carries the HTTP status to return."""
+
     def __init__(self, message: str | Message, status: int = 502):
+        """Keep the message and the status the desk should answer with."""
         super().__init__(message)
         self.status = status
 
@@ -24,14 +27,16 @@ class PaperclipConnectionError(PaperclipError):
     """A retryable transport failure, not an HTTP/authentication error."""
 
     def __init__(self, state: str):
+        """Remember which transport state failed so the UI can name it."""
         self.state = state
         super().__init__(Message("err.connection", state=Message("err." + state)), 503)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    # An API response must be JSON, not a login page. Never forward a bearer
-    # token to a redirect target.
+    """Refuse redirects so a bearer token never reaches another origin."""
+
     def redirect_request(self, req, fp, code, msg, headers, newurl):
+        """Return None so urllib raises instead of following a redirect."""
         return None
 
 
@@ -40,6 +45,7 @@ _direct_api = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRe
 
 
 def is_loopback(host: str) -> bool:
+    """True for ``localhost`` or any loopback IP address."""
     if host.rstrip(".").lower() == "localhost":
         return True
     try:
@@ -58,6 +64,7 @@ def request_json(
     run_id: str = "",
     data: Optional[dict] = None,
 ) -> Any:
+    """Perform one JSON request and translate transport and HTTP failures into desk errors."""
     url = url.rstrip("/")
     headers = {"Accept": "application/json"}
     if key and path != "/api/health":

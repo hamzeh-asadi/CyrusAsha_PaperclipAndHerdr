@@ -6,6 +6,7 @@
   font-display: swap;
   src: url("/fonts/vazirmatn-arabic.woff2") format("woff2");
 }
+/* Design tokens: colours, spacing, radii and the type scale shared by both languages. */
 :root {
   color-scheme: light;
   --ink: #192f43;
@@ -23,6 +24,7 @@
 [hidden] {
   display: none !important;
 }
+/* Base page: background, typography and direction-aware defaults. */
 body {
   margin: 0;
   color: var(--ink);
@@ -260,6 +262,7 @@ aside {
   display: grid;
   gap: 14px;
 }
+/* Surfaces: panels, section heads and the small print inside cards. */
 .panel,
 .member,
 .guide {
@@ -546,6 +549,7 @@ label > textarea,
     Tahoma,
     system-ui;
 }
+/* Card grids for the agent team and the company work list. */
 .cards {
   display: grid;
   gap: 10px;
@@ -633,6 +637,7 @@ dialog textarea {
   margin: 8px 0;
   background: #f5f8fb;
 }
+/* Responsive layout, reduced motion, and the print/report view. */
 @media (max-width: 800px) {
   .layout,
   .team-layout {

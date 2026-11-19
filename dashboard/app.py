@@ -59,6 +59,7 @@ HERDR_CACHE_TTL = float(os.getenv("HERDR_CACHE_TTL", "10"))
 
 def paperclip_json(path: str, method: str = "GET", timeout: float = 5, *, base_url: Optional[str] = None,
                    data: Optional[dict] = None) -> Any:
+    """Call Paperclip's JSON API with the board credentials, or a bare health probe."""
     return request_json(base_url if base_url is not None else PAPERCLIP_URL, path, method, timeout,
                         key=PAPERCLIP_API_KEY if base_url is None else "", data=data)
 
@@ -83,6 +84,7 @@ def check_paperclip_online() -> bool:
 
 
 def resolve_company() -> dict:
+    """Return the configured company or the only one; refuse an ambiguous board."""
     if COMPANY_ID:
         # Some collection endpoints return [] even for an unknown company.
         try:
@@ -109,10 +111,12 @@ def resolve_company() -> dict:
 
 
 def resolve_company_id() -> str:
+    """Return only the resolved company id."""
     return resolve_company()["id"]
 
 
 def company_collection(collection: str) -> list:
+    """List a company-scoped collection such as ``issues`` or ``agents``."""
     company_id = quote(resolve_company_id(), safe="")
     rows = paperclip_json(f"/api/companies/{company_id}/{collection}")
     if not isinstance(rows, list):
@@ -121,6 +125,7 @@ def company_collection(collection: str) -> list:
 
 
 def list_agents_from_paperclip() -> Dict[str, Any]:
+    """Summarise the company roster for the desk, never returning adapter secrets."""
     company = resolve_company()
     rows = desk.roster(paperclip_json, company["id"])
     summaries = [desk.agent_summary(a) for a in rows]
@@ -193,6 +198,7 @@ def _name_candidates(name: Optional[str]) -> set:
 
 
 def mapped_output(record, mapping):
+    """Return the legacy HERDR_AGENT_MAP target for a member, or ``None``."""
     names = _name_candidates(record.get('name'))
     for key in [_normalize_agent_key(record['id']), *sorted(names, key=len, reverse=True)]:
         if key in mapping:
@@ -237,7 +243,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     """HTTP handler exposing dashboard APIs."""
 
     def log_message(self, format, *args):
-        # Disable default logging
+        """Silence the base class access log; the desk reports errors as JSON."""
         pass
 
     def send_json(self, data: Any, status: int = 200, *, lang: Optional[str] = None):
@@ -262,6 +268,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_json({"error": str(detail)}, status)
 
     def do_GET(self):
+        """Serve read-only desk endpoints and the fixed asset table only."""
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
 
@@ -309,6 +316,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_error_json(Message("err.notFound"), status=404)
 
     def do_POST(self):
+        """Accept same-origin mutations only, then dispatch to the desk."""
         parsed = urlparse(self.path)
 
         # This local dashboard uses server-side credentials. Only same-origin
@@ -350,6 +358,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.send_error_json(Message("err.notFound"), status=404)
 
     def is_local_operator(self):
+        """True only for a loopback Host from a loopback client, never via a proxy."""
         # A DNS-rebound hostname or a network/proxy client is not a local operator.
         # Do not trust X-Forwarded-* headers in this unauthenticated application.
         try:
@@ -359,6 +368,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return False
 
     def read_json_object(self):
+        """Read one small JSON object body; reject other media types and sizes."""
         if self.headers.get_content_type() != 'application/json':
             raise PaperclipError(Message("err.media"), 415)
         try:
@@ -468,6 +478,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_asset('index.html', 'text/html')
 
     def send_asset(self, name, mime):
+        """Serve one file from the fixed route table under a strict CSP."""
         # All names come from the fixed route table, never from a request path.
         body = (Path(__file__).parent / name).read_bytes()
         self.send_response(200)
@@ -481,6 +492,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    """Start the desk server, or print a single Paperclip readiness probe."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--open-browser", action="store_true", help="Open the dashboard after binding successfully")
     parser.add_argument("--probe-paperclip", metavar="URL", help="Print one readiness state without starting the dashboard")

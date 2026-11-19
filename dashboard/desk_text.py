@@ -7,6 +7,7 @@ from pathlib import Path
 
 @lru_cache(maxsize=1)
 def catalog():
+    """Load the bilingual copy catalog once per process."""
     return json.loads(Path(__file__).with_name("strings.json").read_text(encoding="utf-8"))
 
 
@@ -31,11 +32,17 @@ _FA_NUMERALS = str.maketrans("0123456789,", "۰۱۲۳۴۵۶۷۸۹٬")
 
 
 class Message:
+    """A translatable desk string: a catalog key plus its substitution values."""
+
     def __init__(self, key, **values):
+        """Store the key and the values used to format it."""
         self.key, self.values = key, values
 
     def render(self, lang="en"):
+        """Format the copy in one language, localizing numerals for Persian."""
+
         def display(value):
+            """Render a nested value: Message, localized number, or untouched text."""
             if isinstance(value, Message):
                 return value.render(lang)
             if isinstance(value, int) and not isinstance(value, bool):
@@ -46,12 +53,14 @@ class Message:
         return catalog()[self.key][lang].format_map({k: display(v) for k, v in self.values.items()})
 
     def wire(self):
+        """Return the ``{key, vars}`` form the browser re-renders after a language switch."""
         return {
             "key": self.key,
             "vars": {k: v.wire() if isinstance(v, Message) else v for k, v in self.values.items()},
         }
 
     def __str__(self):
+        """Render in English for command-line diagnostics."""
         return self.render()
 
 

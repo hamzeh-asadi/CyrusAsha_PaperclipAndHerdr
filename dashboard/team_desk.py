@@ -17,15 +17,18 @@ WORKER = Path(__file__).resolve().with_name("herdr_worker.py")
 
 
 def reject(message, status=400):
+    """Raise a PaperclipError that carries a desk Message and its HTTP status."""
     raise PaperclipError(message, status)
 
 
 def fields(value, allowed):
+    """Reject payloads that carry keys the desk does not accept."""
     if not isinstance(value, dict) or set(value) - set(allowed):
         reject(Message("err.fields"))
 
 
 def text(value, label, limit=240, optional=False):
+    """Validate one short single-line field and return it stripped."""
     if (
         not isinstance(value, str)
         or (not optional and not value.strip())
@@ -41,10 +44,12 @@ def text(value, label, limit=240, optional=False):
 
 
 def company_path(company):
+    """Build the company API path with a quoted company id."""
     return "/api/companies/" + quote(company, safe="")
 
 
 def roster(api, company):
+    """Fetch the company roster, refusing a malformed or foreign response."""
     rows = api(company_path(company) + "/agents")
     if not isinstance(rows, list) or not all(
         isinstance(r, dict) and r.get("id") and r.get("companyId", company) == company for r in rows
@@ -54,6 +59,7 @@ def roster(api, company):
 
 
 def connection(record):
+    """Return the saved Herdr binding ``{mode, target[, session]}`` for a member."""
     meta = record.get("metadata")
     link = meta.get("herdrDesk") if isinstance(meta, dict) else None
     if isinstance(link, dict) and link.get("mode") in ("manual", "agent"):
@@ -65,6 +71,7 @@ def connection(record):
 
 
 def eligible(record):
+    """True when a member is healthy enough to be assigned or released."""
     return (
         record.get("status") in ASSIGNABLE
         and record.get("lifecycleState", "ready") == "ready"
@@ -73,6 +80,7 @@ def eligible(record):
 
 
 def agent_summary(record):
+    """Public member view: no adapter config, environment values or raw errors."""
     summary = {k: record[k] for k in AGENT_FIELDS if k in record}
     if "lifecycleState" in record:
         summary["lifecycleState"] = record["lifecycleState"]
@@ -96,6 +104,7 @@ def title_marker(value):
 
 
 def plan_title(value, label, *, creating=True):
+    """Validate a title, refusing unreadable markers when creating new work."""
     title = text(value, label, optional=not creating)
     # A selected parent is referenced by ID, never renamed as part of a plan.
     if creating and title_marker(title):
@@ -104,6 +113,7 @@ def plan_title(value, label, *, creating=True):
 
 
 def issue_summary(record):
+    """Public issue view, plus a marker when the stored title is unreadable."""
     summary = {k: record[k] for k in ISSUE_FIELDS if k in record}
     if marker := title_marker(record.get("title")):
         summary["titleWarning"] = marker
@@ -111,6 +121,7 @@ def issue_summary(record):
 
 
 def enroll(api, company, payload):
+    """Register one member with a manual or Herdr-linked binding, re-checking the target."""
     fields(payload, ("companyId", "name", "mode", "target", "terminal", "kind", "session"))
     name = text(payload.get("name"), Message("field.name"), 80)
     mode = payload.get("mode")
@@ -206,6 +217,7 @@ def enroll(api, company, payload):
 
 
 def get_issue(api, company, issue_id):
+    """Fetch one issue and prove it belongs to this company."""
     path = "/api/issues/" + quote(text(issue_id, Message("field.issue"), 100), safe="")
     issue = api(path)
     if not isinstance(issue, dict) or issue.get("companyId") != company or issue.get("id") != issue_id:
@@ -214,6 +226,7 @@ def get_issue(api, company, issue_id):
 
 
 def save_plan(api, company, payload):
+    """Create the parent issue and its assigned subtasks in backlog without waking anyone."""
     fields(payload, ("companyId", "requestId", "parentId", "title", "steps"))
     try:
         key = "herdr-desk:" + str(uuid.UUID(str(payload.get("requestId"))))
@@ -242,6 +255,7 @@ def save_plan(api, company, payload):
     route = company_path(company) + "/issues"
 
     def create(suffix, data):
+        """Create one idempotent issue and verify the stored fields match."""
         row = api(
             route,
             "POST",
@@ -296,6 +310,7 @@ def require_ready_target(member):
 
 
 def advance(api, company, payload):
+    """Queue a released issue, or park a manual one in review, after re-checking ownership."""
     fields(payload, ("companyId", "issueId", "assigneeAgentId", "action"))
     issue = get_issue(api, company, payload.get("issueId"))
     member = next(
