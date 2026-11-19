@@ -268,6 +268,32 @@ class DeskTests(unittest.TestCase):
         self.assertEqual(self.board.writes[-1][2]["reviewInteractionId"], "decision")
         self.assertFalse(any("heartbeat/invoke" in p for _, p, _ in self.board.writes))
 
+    def test_release_requires_a_ready_herdr_target(self):
+        member = self.board.members[0]
+        member["metadata"] = {
+            "herdrDesk": {
+                "mode": "agent",
+                "target": "w1:p1",
+                "terminal": "t1",
+                "kind": "agy",
+                "session": "default",
+            }
+        }
+        self.board.issues["i"] = dict(
+            id="i", companyId="c1", status="backlog", assigneeAgentId=member["id"], statusVersion=1
+        )
+        data = {"companyId": "c1", "issueId": "i", "assigneeAgentId": member["id"], "action": "release"}
+        onboarding = {"agent": "agy", "pane_id": "w1:p1", "terminal_id": "t1", "agent_status": "done"}
+        with patch.object(desk, "bound_agent", return_value=onboarding):
+            with self.assertRaises(PaperclipError) as cm:
+                desk.advance(self.board, "c1", data)
+        self.assertEqual(cm.exception.args[0].key, "err.targetNotReady")
+        self.assertEqual(cm.exception.status, 409)
+        self.assertEqual(self.board.issues["i"]["status"], "backlog")
+        self.assertFalse(self.board.writes)
+        with patch.object(desk, "bound_agent", return_value=dict(onboarding, interactive_ready=True)):
+            self.assertEqual(desk.advance(self.board, "c1", data)["issue"]["status"], "todo")
+
     def test_http_boundaries_and_sanitized_roster(self):
         self.board.members[0]["adapterConfig"] = {"env": {"SECRET": "never send me"}}
         with (

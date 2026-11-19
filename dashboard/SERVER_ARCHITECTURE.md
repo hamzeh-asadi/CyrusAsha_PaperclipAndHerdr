@@ -25,7 +25,7 @@ All paths are relative to the dashboard, not Paperclip. `/health` is service rea
 | `GET /api/agents/<id>/output` | Local only. Checks company membership, binding, allowed source and 1–200 lines. Legacy read targets can be set with `HERDR_AGENT_MAP`. |
 | `POST /api/team/enroll` | `companyId, name, mode` (`manual` or `agent`); Echo the selected `session, target, terminal, kind` for `agent`; revalidated against live discovery to catch pane replacement. Requires loopback Paperclip with the same filesystem/user. Returns `agent, existing` and, for new hires, `needsApproval`. |
 | `POST /api/plans` | `companyId, requestId` (UUID), `parentId` or new `title`, `steps` of `{title, description?, assigneeAgentId}`. Returns `parent, children`. |
-| `POST /api/work/advance` | `companyId, issueId, assigneeAgentId, action` (`release` or manual `review`). Rechecks the company, assignee and status. Returns `issue`. |
+| `POST /api/work/advance` | `companyId, issueId, assigneeAgentId, action` (`release` or manual `review`). Rechecks the company, assignee and status; a linked `release` first confirms the Herdr target is idle and interactive, so an onboarding or sign-in screen returns a message instead of a blocked ticket. Returns `issue`. |
 | `POST /api/agents/<id>/heartbeat/invoke` | Explicit user wake, company and readiness checked; not for a manual member. Ordinary plan/release flow needs no second wake. |
 
 Error responses retain the plain `error` field. Desk-owned errors can also include `i18n: {key, vars}` for re-rendering an existing message after a language change. Raw user content and terminal output are not localized.

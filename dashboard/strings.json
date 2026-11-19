@@ -871,6 +871,14 @@
     "en": "This action is not allowed for the current status. Refresh the list.",
     "fa": "این تغییر برای وضعیت فعلی کار مجاز نیست. فهرست را تازه کنید."
   },
+  "err.targetNotReady": {
+    "en": "Herdr target {target} is not ready ({state}): it is still on an onboarding or sign-in screen. Finish that screen in its Herdr pane, then release the task again. The ticket was not changed.",
+    "fa": "هدف Herdr با نام {target} آماده نیست ({state}) و هنوز روی صفحهٔ onboarding یا ورود است. همان صفحه را در پنجرهٔ Herdr کامل کنید و بعد کار را دوباره ارسال کنید؛ تیکت تغییر نکرد."
+  },
+  "err.targetUnavailable": {
+    "en": "The linked Herdr target {target} cannot be checked right now. Refresh the Herdr list and release again. The ticket was not changed.",
+    "fa": "هدف متصل Herdr ({target}) الان قابل بررسی نیست. فهرست Herdr را تازه کنید و دوباره ارسال کنید؛ تیکت تغییر نکرد."
+  },
   "err.update": {
     "en": "Status change not confirmed. Check the issue in Paperclip.",
     "fa": "وضعیت درخواستی تأیید نشد؛ کار را در Paperclip بررسی کنید."
